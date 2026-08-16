@@ -1,0 +1,38 @@
+{
+  "name": "@oh-dsh/d-balance",
+  "version": "0.1.0",
+  "description": "DeepSeek 余额查询插件：注册 deepseek_balance 模型工具，并在右下角常驻可拖拽的余额小组件（刷新频率可调、位置持久化）。",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./client": "./dist/client.js",
+    "./cordis.patch.yml": "./dist/cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/index.js",
+    "dist/client.js",
+    "dist/cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./dist/cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ],
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "ohDsh": {
+    "hostDependencies": [
+      "@deepseek-ai/dsh-credentials",
+      "@deepseek-ai/dsh-tools",
+      "@deepseek-ai/dsh-host-webserver"
+    ]
+  }
+}

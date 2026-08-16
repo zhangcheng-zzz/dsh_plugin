@@ -1,0 +1,9 @@
+# Oh-DSH D-Balance: DeepSeek 余额查询插件（正式包）
+#
+# 该 patch 在打包的 bundle 之后应用，把本插件的 Host 半挂进组合。
+# 安装方式：把 @oh-dsh/d-balance 装进 profile 的 node_modules，并把本文件
+# 的内容合并进 profile 的 cordis.patch.yml（或通过 dsh.bundle.patch 自动引用）。
+
+- insert:
+    - id: oh-d-balance
+      name: '@oh-dsh/d-balance'
