@@ -468,6 +468,7 @@ function createApiClient(config) {
     const api = paths(account);
     const detail = await getPipeline(account, pipelineId);
     const results = [];
+    let codeupApiAuthorized;
     for (const source of detail.sources) {
       const result = { ...source, branches: [], warning: "" };
       const repositoryPath = codeupRepositoryPath(source.repo);
@@ -483,9 +484,15 @@ function createApiClient(config) {
           { query: { page, perPage: 100, sort: "updated_desc" } }
         );
         if (!response.ok || !Array.isArray(response.payload)) {
-          result.warning = response.error?.status === 403
-            ? "当前令牌没有 Codeup 分支读取权限，可手动填写分支"
-            : "分支读取失败，可手动填写分支";
+          if (response.error?.status === 403) {
+            if (codeupApiAuthorized === undefined) {
+              const probe = await requestOptional(account, `${api.codeup}/repositories`, { query: { page: 1, perPage: 1 } });
+              codeupApiAuthorized = probe.ok && Array.isArray(probe.payload);
+            }
+            result.warning = codeupApiAuthorized
+              ? "令牌的代码管理 API 权限已生效，但令牌所属用户无此代码库访问权限；请将该用户加入代码库成员"
+              : "当前令牌没有 Codeup 分支读取权限；请检查“代码管理 → 分支 → 只读”权限";
+          } else result.warning = "分支读取失败，可稍后重试";
           break;
         }
         const pageBranches = response.payload.map((item) => cleanText(item?.name, 500)).filter(Boolean);

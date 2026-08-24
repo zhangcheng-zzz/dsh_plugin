@@ -315,3 +315,37 @@ test("pipeline branches support nested pipelineConfig sources and run payload om
   });
   assert.equal(run.pipelineRunId, "9001");
 });
+
+test("pipeline branch errors distinguish PAT scope from repository membership", async (t) => {
+  const previousFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = previousFetch; });
+  globalThis.fetch = async (url) => {
+    const value = String(url);
+    if (value.endsWith("/pipelines/1")) {
+      return new Response(JSON.stringify({
+        id: 1,
+        name: "构建",
+        pipelineConfig: { sources: [{
+          type: "codeup",
+          name: "repo",
+          data: { repo: "https://codeup.aliyun.com/org/group/repo.git", branch: "main" }
+        }] }
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (value.includes("/repositories/org%2Fgroup%2Frepo/branches")) {
+      return new Response(JSON.stringify({ errorMessage: "访问的资源无权限" }), {
+        status: 403,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    if (value.includes("/repositories?page=1&perPage=1")) {
+      return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  const client = createApiClient({ apiBaseUrl: "https://openapi-rdc.aliyuncs.com", timeoutMs: 5000 });
+  const sources = await client.listPipelineBranches({ organizationId: "org", token: "token" }, "1");
+  assert.match(sources[0].warning, /API 权限已生效/);
+  assert.match(sources[0].warning, /代码库访问权限/);
+  assert.deepEqual(sources[0].branches, []);
+});
