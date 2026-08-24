@@ -1,89 +1,78 @@
-# @oh-dsh/d-balance
+# dsh-balance
 
-DeepSeek 余额查询插件（Oh-DSH 正式插件包）。为 Oh-DSH 提供两类能力：
+适用于 DeepSeek Harness 的通用余额查询插件，提供两类能力：
 
-1. **模型工具 `deepseek_balance`**：Agent 可调用，查询当前 `DEEPSEEK_API_KEY` 账户的可用状态、币种、总余额、赠送余额与充值余额。
-2. **右下角悬浮小组件**：常驻显示余额，支持拖拽移动、点击设置刷新频率（5 秒～5 分钟），位置与频率写入 `localStorage` 持久化（重启后仍恢复）。
+1. 模型工具 `deepseek_balance`：查询当前 `DEEPSEEK_API_KEY` 账户的可用状态、币种、总余额、赠送余额与充值余额。
+2. Web 悬浮小组件：显示余额，支持拖拽、刷新频率设置和位置持久化。
 
 ## 特性
 
-- **凭据即时解析**：每次查询走 `ctx.credentials.resolve(credentialRef('DEEPSEEK_API_KEY'))`，改 Key 无需重启。
-- **直接网络**：正式插件是真正的 Node 环境，直接用内置 `fetch` 请求余额接口（无需动态沙箱版的 node 子进程绕行）。
-- **无构建依赖**：Client 半为手写 `window.__ModuleLoader__.load` 模块，Host↔Client 通过同源 HTTP 路由通信，避开 Typert 生成链。
+- 每次查询通过 `ctx.credentials.resolve('DEEPSEEK_API_KEY')` 读取最新凭据，无需重启插件。
+- Host 直接使用 Node 内置 `fetch` 请求 DeepSeek 余额接口。
+- Host 入口不导入 Harness 核心包，避免树外插件复制核心运行时。
+- 通过注入的 `tools` 服务注册模型工具。
+- 可选注入 `webServer`；Web 表面提供小组件，纯终端表面仍可使用模型工具。
+- 无构建步骤，发布内容已位于 `dist/`。
 
 ## 目录结构
 
 | 路径 | 说明 |
 | --- | --- |
-| `package.json` | 正式包元数据（`dsh.bundle.patch` + `dsh.client` 注入配置 + 宿主依赖） |
-| `dist/index.js` | Host 半（ESM Cordis 插件）：注册 `deepseek_balance` 工具 + `/api/d-balance/balance` 路由 |
-| `dist/client.js` | Client 半（`window.__ModuleLoader__.load` 浏览器模块）：悬浮小组件 |
-| `dist/cordis.patch.yml` | 组合接入层：把本插件挂进 composition |
-| `host.js` / `client.js` | 旧版动态沙箱插件源码（临时运行时版，仅供参考） |
+| `package.json` | npm 包及 `dsh.bundle`、`dsh.client` 清单 |
+| `dist/index.js` | Host Cordis 插件 |
+| `dist/client.js` | 浏览器端小组件 |
+| `dist/cordis.patch.yml` | 插入 `dsh-balance` 插件行的组合层 |
+| `host.js` / `client.js` | 早期动态插件实现，仅供参考 |
 
 ## 工作原理
 
-- **凭据**：`ctx.credentials.resolve(credentialRef('DEEPSEEK_API_KEY'))`，即时解析。
-- **余额接口**：`GET https://api.deepseek.com/user/balance`，请求头 `Authorization: Bearer <key>`。
-- **Client↔Host 通信**：Host 注册同源 HTTP 路由 `GET /api/d-balance/balance`，Client 用浏览器 `fetch` 轮询。
-- **持久化**：小组件的位置与频率写入 `localStorage`（key `oh-dsh.d-balance.v1`）。
+- 凭据：`ctx.credentials.resolve('DEEPSEEK_API_KEY')`
+- 余额接口：`GET https://api.deepseek.com/user/balance`
+- 请求头：`Authorization: Bearer <key>`
+- Client 与 Host 通信：`GET /api/d-balance/balance`
+- 浏览器持久化键：`dsh-balance.v1`
 
 ## 安装
 
-本包遵循 `@oh-dsh/*` 插件约定，安装分三步（已在本机按此方式接入桌面端 + Web 端）。
-
-### 1. 把包放进运行时 node_modules
-
-`profiles\node_modules` 是对运行时 `node_modules` 的 junction 树；把包放进运行时
-`node_modules` 并建立 profile junction，使 Host（`import`）与 Client（`dsh.client` 扫描）都能解析到。
+在本仓库根目录运行：
 
 ```powershell
-$src  = 'D:\develop\code\dsh_plugin\d_balance'
-$dep  = 'D:\software\dsh\Oh-DSH Desktop\resources\dsh-runtime\node_modules\@oh-dsh'
-$prof = 'C:\Users\admin\.ohdsh\profiles\node_modules\@oh-dsh'
-
-Copy-Item $src "$dep\d-balance" -Recurse -Force
-New-Item -ItemType Junction -Path "$prof\d-balance" -Target "$dep\d-balance" | Out-Null
+dsh plugin --profile web add ./d_balance
 ```
 
-### 2. 接线 composition（桌面端 + Web 端）
+CLI 会将 `dsh-balance` 写入 profile 依赖，并把它追加到 `dsh.profile.bundles`。
 
-`cordis.yml` 是空根，实际组合由 `package.json` 的 `dsh.profile.bundles` 依次 +
-`cordis.patch.yml` 组装，所以只改 `cordis.patch.yml`，不要改 `cordis.yml`。
+验证组合：
 
-把下面这段并入两个 profile 的 patch 层：
+```powershell
+dsh --profile web --dump-config
+```
 
-- `C:\Users\admin\.ohdsh\profiles\desktop\cordis.patch.yml`（桌面端）
-- `C:\Users\admin\.ohdsh\profiles\web\cordis.patch.yml`（Web 端）
+输出中应包含：
 
 ```yaml
-- insert:
-    - id: oh-d-balance
-      name: '@oh-dsh/d-balance'
+# == dsh-balance
+- id: dsh-balance
+  name: dsh-balance
 ```
 
-### 3. 重启应用
+配置层在启动时读取，安装后需要停止并重新启动正在运行的 Harness 实例。
 
-composition 在启动时读取，需**完全退出并重新打开** Oh-DSH Desktop。
-
-## 卸载 / 回滚
+## 卸载
 
 ```powershell
-# 1. 把两个 cordis.patch.yml 里的 - insert: 段删掉，恢复为 []
-# 2. 删除包与 junction
-Remove-Item 'C:\Users\admin\.ohdsh\profiles\node_modules\@oh-dsh\d-balance' -Recurse -Force
-Remove-Item 'D:\software\dsh\Oh-DSH Desktop\resources\dsh-runtime\node_modules\@oh-dsh\d-balance' -Recurse -Force
-# 3. 重启应用
+dsh plugin --profile web remove dsh-balance
 ```
 
 ## 运行行为
 
-- 小组件默认出现在**右下角**，绿点显示 `DeepSeek ¥<总余额>`（CNY 显示 ¥）。
-- **拖动**移动位置；**单击**弹出频率面板（5 秒 / 10 秒 / 15 秒 / 30 秒 / 1 分钟 / 5 分钟 + 重置位置）。
-- 按设定频率自动轮询余额；红点 = 未配置 Key 或请求失败（悬停看原因）。
+- 小组件默认位于右下角，显示 `DeepSeek <币种符号><总余额>`。
+- 拖动可改变位置；单击可选择 5 秒到 5 分钟的刷新频率。
+- 红点表示凭据缺失或余额请求失败，悬停可查看原因。
+- HTTP 路由仅返回余额信息，不返回 API Key。
 
-## 限制与说明
+## 环境要求
 
-- Client 半依赖 Web/桌面表面的 `webServer`（`@oh-dsh/web` / `@oh-dsh/desktop` bundle 已提供）；在纯 TUI 表面只会注册工具、无小组件。
-- HTTP 路由绑定在 localhost，仅返回余额数字（不含 Key），Key 始终留在 Host 侧。
-- `dist/client.js` 是按 `window.__ModuleLoader__.load` 格式手写的浏览器模块，未经过上游 esbuild/typert 生成链，需在真实安装后验证渲染与轮询。
+- DeepSeek Harness `0.1.1-rc.2` 或兼容版本
+- Node.js `22.19.0` 或更高兼容版本
+- 已配置 `DEEPSEEK_API_KEY`

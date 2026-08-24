@@ -14,3 +14,6 @@ Thumbs.db
 # Logs / temp
 *.log
 *.tmp
+
+# Local plugin data (contains a plaintext Yunxiao token)
+dsh-yunxiao.data.json

@@ -1,13 +1,13 @@
-// @oh-dsh/d-balance — Client 半（正式浏览器模块，window.__ModuleLoader__.load 格式）
+// dsh-balance — Client 半（正式浏览器模块，window.__ModuleLoader__.load 格式）
 //
 // 右下角悬浮胶囊：显示余额、可拖拽、点击设置刷新频率、位置与频率写入 localStorage。
 // 余额数据来自 Host 注册的 HTTP 路由 GET /api/d-balance/balance（同源 fetch）。
 
-window.__ModuleLoader__.load({ id: "@oh-dsh/d-balance", factory: (require) => {
+window.__ModuleLoader__.load({ id: "dsh-balance", factory: (require) => {
 var module = { exports: {} };
 var exports = module.exports;
 
-var STORE_KEY = "oh-dsh.d-balance.v1";
+var STORE_KEY = "dsh-balance.v1";
 var FREQ_OPTIONS = [
   { label: "5 秒", value: 5000 },
   { label: "10 秒", value: 10000 },
@@ -302,7 +302,7 @@ function apply(ctx) {
   ctx.effect(function () {
     widget.mount();
     return function () { widget.dispose(); };
-  }, "oh-dsh-d-balance: balance widget");
+  }, "dsh-balance: balance widget");
 }
 
 exports.apply = apply;

@@ -1,31 +1,30 @@
-// @oh-dsh/d-balance — Host 半（正式 Cordis 插件，非沙箱）
+// dsh-balance — Host 半（正式 Cordis 插件，非沙箱）
 //
-// 与动态沙箱版不同，这里是真正的 Node 插件：直接用 node 内置 fetch 请求余额，
-// 无需再派生 node 子进程。凭据仍走 credentials seam（按调用即时解析）。
+// 这里是真正的 Node 插件：直接用 Node 内置 fetch 请求余额。Host 入口刻意
+// 不导入 Harness 核心包，避免树外插件在 profile 中安装另一份核心运行时。
 //
 // 提供两块能力：
 //   1. 模型工具 deepseek_balance —— 供 Agent 查询余额。
 //   2. HTTP 路由 GET /api/d-balance/balance —— 供右下角小组件（Client 半）轮询。
 
-import { credentialRef } from "@deepseek-ai/dsh-credentials";
-import { defineTool } from "@deepseek-ai/dsh-tools";
-
-const name = "oh-dsh-d-balance";
+const name = "dsh-balance";
 const inject = ["credentials", "tools"];
 
 const BALANCE_URL = "https://api.deepseek.com/user/balance";
 const API_KEY_REF = "DEEPSEEK_API_KEY";
 const TIMEOUT_MS = 30000;
 
-async function queryBalance(credentials) {
-  const resolved = await credentials.resolve(credentialRef(API_KEY_REF));
+async function queryBalance(credentials, signal = AbortSignal.timeout(TIMEOUT_MS)) {
+  // CredentialRef 在运行时是经过校验的字符串品牌。这里使用固定、合法的
+  // 引用名，从而无需为一个运行时恒等转换加载 dsh-credentials 的第二份副本。
+  const resolved = await credentials.resolve(API_KEY_REF);
   if (resolved === undefined || typeof resolved.value !== "string" || resolved.value.length === 0) {
     throw new Error(`未配置 DeepSeek API Key（${API_KEY_REF}）。请在模型设置或 .credentials.yaml 中配置。`);
   }
 
   const response = await fetch(BALANCE_URL, {
     headers: { authorization: `Bearer ${resolved.value}` },
-    signal: AbortSignal.timeout(TIMEOUT_MS)
+    signal
   });
   const body = await response.text();
   if (!response.ok) {
@@ -52,10 +51,14 @@ async function queryBalance(credentials) {
 
 function apply(ctx) {
   // 1. 模型工具（核心能力，纯 Host，任何表面可用）
-  ctx.effect(() => ctx.tools.register(defineTool({
+  ctx.tools.register({
     name: "deepseek_balance",
     description: "查询当前配置的 DeepSeek API Key（DEEPSEEK_API_KEY）账户余额。返回可用状态、币种、总余额、赠送余额和充值余额。",
-    parameters: {},
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {}
+    },
     timeoutMs: TIMEOUT_MS + 5000,
     isConcurrencySafe: () => true,
     output: {
@@ -76,13 +79,15 @@ function apply(ctx) {
           `总余额=${value.totalBalance}，赠送余额=${value.grantedBalance}，充值余额=${value.toppedUpBalance}`
       }]
     },
-    execute: async () => await queryBalance(ctx.credentials)
-  })), "oh-dsh-d-balance.tool");
+    execute: async (_args, exec) => await queryBalance(
+      ctx.credentials,
+      AbortSignal.any([exec.signal, AbortSignal.timeout(TIMEOUT_MS)])
+    )
+  });
 
   // 2. 供右下角小组件查询的 HTTP 路由（仅 Web/Desktop 表面存在 webServer 时注册）
-  const webServer = ctx.get("webServer");
-  if (webServer !== undefined) {
-    ctx.effect(() => webServer.register({
+  ctx.inject(["webServer"], (httpCtx) => {
+    httpCtx.effect(() => httpCtx.webServer.register({
       kind: "exact",
       path: "/api/d-balance/balance",
       handler: async (_req, res) => {
@@ -96,8 +101,8 @@ function apply(ctx) {
           res.end(JSON.stringify({ ok: false, message }));
         }
       }
-    }), "oh-dsh-d-balance.web-route");
-  }
+    }), "dsh-balance: balance route");
+  });
 }
 
 export { apply, inject, name };
