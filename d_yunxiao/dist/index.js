@@ -443,7 +443,16 @@ function createApiClient(config) {
     const response = await request(account, `${api.pipelines}/${encodeURIComponent(pipelineId)}`);
     const item = response.payload;
     if (!item || typeof item !== "object" || Array.isArray(item)) throw new YunxiaoError("云效流水线详情接口返回格式异常");
-    const sources = Array.isArray(item.sources) ? item.sources.filter((source) => source && typeof source === "object") : [];
+    let pipelineConfig = item.pipelineConfig;
+    if (typeof pipelineConfig === "string") {
+      try { pipelineConfig = JSON.parse(pipelineConfig); } catch { pipelineConfig = {}; }
+    }
+    if (!pipelineConfig || typeof pipelineConfig !== "object" || Array.isArray(pipelineConfig)) pipelineConfig = {};
+    let sourceValue = Array.isArray(item.sources) ? item.sources : pipelineConfig.sources;
+    if (typeof sourceValue === "string") {
+      try { sourceValue = JSON.parse(sourceValue); } catch { sourceValue = []; }
+    }
+    const sources = Array.isArray(sourceValue) ? sourceValue.filter((source) => source && typeof source === "object") : [];
     return {
       pipeline: mapPipeline(item),
       envId: Number.isInteger(item.envId) ? item.envId : null,
@@ -451,7 +460,7 @@ function createApiClient(config) {
       groupId: cleanText(item.groupId, 128),
       pipelineType: cleanText(item.type || item.pipelineType, 100),
       sources: sources.map(mapPipelineSource),
-      settings: cleanTextPreserve(item.pipelineConfig?.settings, 200_000)
+      settings: cleanTextPreserve(pipelineConfig.settings, 200_000)
     };
   }
 
@@ -474,7 +483,9 @@ function createApiClient(config) {
           { query: { page, perPage: 100, sort: "updated_desc" } }
         );
         if (!response.ok || !Array.isArray(response.payload)) {
-          result.warning = "分支读取失败，可手动填写";
+          result.warning = response.error?.status === 403
+            ? "当前令牌没有 Codeup 分支读取权限，可手动填写分支"
+            : "分支读取失败，可手动填写分支";
           break;
         }
         const pageBranches = response.payload.map((item) => cleanText(item?.name, 500)).filter(Boolean);
@@ -529,11 +540,9 @@ function createApiClient(config) {
     const params = {};
     const branchMode = Array.isArray(input.branchModeBranches) ? input.branchModeBranches.map((item) => cleanText(item, 500)).filter(Boolean) : [];
     const running = cleanMapping(input.runningBranches, 20, 500);
-    const envs = cleanMapping(input.envs, 100, 1000);
     const comment = cleanText(input.comment, 1000);
     if (branchMode.length) params.branchModeBranchs = [...new Set(branchMode)].slice(0, 100);
     if (Object.keys(running).length) params.runningBranchs = running;
-    if (Object.keys(envs).length) params.envs = envs;
     if (comment) params.comment = comment;
     const response = await request(account, `${api.pipelines}/${encodeURIComponent(pipelineId)}/runs`, {
       method: "POST",
@@ -680,7 +689,7 @@ function mapPipelineSource(item) {
   const repo = cleanText(data.repo, 2000);
   return {
     sourceId: cleanText(item.sign || item.name || repo, 500),
-    name: cleanText(item.name || data.label || repo || "代码源", 500),
+    name: cleanText(item.label || data.label || item.name || repo || "代码源", 500),
     type: cleanText(item.type, 100),
     repo,
     defaultBranch: cleanText(data.branch, 500),

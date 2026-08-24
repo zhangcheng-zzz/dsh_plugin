@@ -26,6 +26,10 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(source, /defect\.statuses/);
   assert.match(source, /assignedToId/);
   assert.match(source, /dyx-inline-status/);
+  const runForm = source.slice(source.indexOf("function openRunPipeline"), source.indexOf("function openPipelineRun"));
+  assert.match(runForm, /pipeline\.branches/);
+  assert.match(runForm, /运行分支/);
+  assert.doesNotMatch(runForm, /window\.confirm|环境变量|envInput|envs:/);
   assert.doesNotMatch(source, /dyx-launch/);
   assert.doesNotMatch(source, /ctx\.slots\.register\(\{ name: "details" \}/);
 });
@@ -241,4 +245,64 @@ test("API client reads workflow statuses without loading comments and updates li
   const updateCall = calls.find((item) => item.method === "PUT");
   assert.deepEqual(JSON.parse(updateCall.body), { status: "done" });
   assert.equal(updated.statusId, "done");
+});
+
+test("pipeline branches support nested pipelineConfig sources and run payload omits envs", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  t.after(() => { globalThis.fetch = previousFetch; });
+  globalThis.fetch = async (url, options = {}) => {
+    const value = String(url);
+    calls.push({ url: value, options });
+    if (value.includes("/repositories/") && value.endsWith("/branches?page=1&perPage=100&sort=updated_desc")) {
+      return new Response(JSON.stringify([{ name: "master" }, { name: "release/1.0" }]), {
+        status: 200,
+        headers: { "content-type": "application/json", "x-total-pages": "1" }
+      });
+    }
+    if (value.endsWith("/pipelines/5208752") && (options.method || "GET") === "GET") {
+      return new Response(JSON.stringify({
+        id: 5208752,
+        name: "web-supply",
+        pipelineConfig: {
+          settings: "{}",
+          sources: [{
+            name: "ui-supply_internal",
+            label: "学校后台前端",
+            sign: "source-1",
+            type: "codeup",
+            data: {
+              repo: "https://codeup.aliyun.com/org/school/ui-supply.git",
+              branch: "master",
+              isBranchMode: false
+            }
+          }]
+        }
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (value.endsWith("/pipelines/5208752/runs") && options.method === "POST") {
+      return new Response(JSON.stringify({ pipelineRunId: 9001 }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    throw new Error(`unexpected request: ${options.method || "GET"} ${value}`);
+  };
+  const client = createApiClient({ apiBaseUrl: "https://openapi-rdc.aliyuncs.com", timeoutMs: 5000 });
+  const account = { organizationId: "org-1", token: "token" };
+
+  const sources = await client.listPipelineBranches(account, "5208752");
+  assert.deepEqual(sources[0].branches, ["master", "release/1.0"]);
+  assert.equal(sources[0].defaultBranch, "master");
+  assert.equal(sources[0].name, "学校后台前端");
+
+  const run = await client.createPipelineRun(account, "5208752", {
+    runningBranches: { "https://codeup.aliyun.com/org/school/ui-supply.git": "release/1.0" },
+    envs: { SHOULD_NOT_BE_SENT: "1" },
+    comment: "发布验证"
+  });
+  const post = calls.find((item) => item.options.method === "POST");
+  const params = JSON.parse(JSON.parse(post.options.body).params);
+  assert.deepEqual(params, {
+    runningBranchs: { "https://codeup.aliyun.com/org/school/ui-supply.git": "release/1.0" },
+    comment: "发布验证"
+  });
+  assert.equal(run.pipelineRunId, "9001");
 });

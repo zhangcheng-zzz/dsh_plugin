@@ -42,6 +42,7 @@
       else if (method === 'pipeline.get') data = { pipeline: pipelines[0], envName: '生产环境', sources: [{ sourceId: 's1', name: '主仓库', type: 'Codeup', repo: 'https://codeup.aliyun.com/demo/app.git', defaultBranch: 'main', isBranchMode: false }] };
       else if (method === 'pipeline.runs') data = { items: [{ pipelineId: '1001', pipelineRunId: '501', status: 'SUCCESS', startTime: '2026-08-24T07:00:00Z', endTime: '2026-08-24T07:08:00Z' }], total: 1, page: 1, pageSize: 10 };
       else if (method === 'pipeline.branches') data = [{ sourceId: 's1', name: '主仓库', type: 'Codeup', repo: 'https://codeup.aliyun.com/demo/app.git', defaultBranch: 'main', isBranchMode: false, branches: ['main', 'release/2026.08'], warning: '' }];
+      else if (method === 'pipeline.run.create') data = { pipelineId: request.args.pipelineId, pipelineRunId: 'preview-501' };
       return new Response(JSON.stringify({ ok: true, data }), { status: 200, headers: { 'content-type': 'application/json' } });
     };
     window.__ModuleLoader__ = { load(definition) { const plugin = definition.factory(() => ({})); plugin.apply({ effect(effect) { effect(); } }); } };

@@ -36,7 +36,7 @@ var CSS = [
   ".dyx-account-top{display:flex;gap:11px;align-items:center;cursor:pointer}.dyx-avatar{width:38px;height:38px;display:grid;place-items:center;flex:none;border-radius:11px;color:#fff;background:linear-gradient(135deg,#2563eb,#0f766e);font-weight:800}.dyx-grow{min-width:0;flex:1}.dyx-grow strong,.dyx-grow small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dyx-grow small{color:var(--dyx-muted)}",
   ".dyx-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.dyx-account .dyx-actions{margin-top:12px;justify-content:flex-end}",
   ".dyx-btn{min-height:34px;padding:7px 12px;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-text);background:var(--dyx-panel);cursor:pointer;font:inherit}.dyx-btn:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-btn.primary{border-color:var(--dyx-brand);color:#fff;background:#2563eb}.dyx-btn.danger{color:var(--dyx-danger)}.dyx-btn:disabled{opacity:.55;cursor:not-allowed}",
-  ".dyx-field{display:grid;gap:5px}.dyx-field label{color:var(--dyx-muted);font-size:12px}.dyx-input,.dyx-select,.dyx-textarea{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-text);background:var(--dyx-panel);outline:0;font:inherit}.dyx-input:focus,.dyx-select:focus,.dyx-textarea:focus{border-color:var(--dyx-brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--dyx-brand) 13%,transparent)}.dyx-textarea{min-height:84px;resize:vertical}",
+  ".dyx-field{display:grid;gap:5px}.dyx-field label{color:var(--dyx-muted);font-size:12px}.dyx-input,.dyx-select,.dyx-textarea{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-text);background:var(--dyx-panel);outline:0;font:inherit}.dyx-input:focus,.dyx-select:focus,.dyx-textarea:focus{border-color:var(--dyx-brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--dyx-brand) 13%,transparent)}.dyx-textarea{min-height:84px;resize:vertical}.dyx-select[multiple]{min-height:112px;padding:6px}.dyx-select[multiple] option{padding:7px 8px;border-radius:6px}",
   ".dyx-project-row{display:grid;grid-template-columns:1fr;gap:9px}.dyx-current{margin-top:12px;padding:12px;border-radius:10px;color:var(--dyx-muted);background:var(--dyx-panel2)}.dyx-current strong{color:var(--dyx-text)}",
   ".dyx-tools{margin-bottom:13px;display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:end}",
   ".dyx-table-wrap{overflow:auto;border:1px solid var(--dyx-line);border-radius:11px}.dyx-table{width:100%;border-collapse:collapse;min-width:760px}.dyx-table th,.dyx-table td{padding:11px 12px;border-bottom:1px solid var(--dyx-line);text-align:left;vertical-align:middle}.dyx-table th{position:sticky;top:0;z-index:1;color:var(--dyx-muted);background:var(--dyx-panel2);font-size:12px;white-space:nowrap}.dyx-table tr:last-child td{border-bottom:0}.dyx-table tbody tr:hover{background:color-mix(in srgb,var(--dyx-brand) 5%,transparent)}",
@@ -693,7 +693,7 @@ function createWorkspace(onRequestClose) {
 
   function openRunPipeline(pipeline) {
     var dialog = modal("运行流水线：" + pipeline.name, true);
-    dialog.body.append(empty("正在读取代码源", "分支读取失败时仍可手动填写。"));
+    dialog.body.append(empty("正在读取代码源与分支", "Codeup 分支会自动加载，其他代码源仍可手动填写。"));
     rpc("pipeline.branches", rpcArgs({ pipelineId: pipeline.id })).then(function (sources) {
       dialog.body.textContent = "";
       var form = node("div", "dyx-form");
@@ -702,26 +702,30 @@ function createWorkspace(onRequestClose) {
         var control;
         if (source.branches && source.branches.length) {
           control = node("select", "dyx-select");
-          var blank = node("option", "", "使用默认配置"); blank.value = ""; control.append(blank);
+          if (source.isBranchMode) { control.multiple = true; control.size = Math.min(5, Math.max(3, source.branches.length)); }
+          else { var blank = node("option", "", "使用默认配置"); blank.value = ""; control.append(blank); }
           source.branches.forEach(function (branch) { var option = node("option", "", branch); option.value = branch; option.selected = branch === source.defaultBranch; control.append(option); });
         } else control = input("text", "留空使用默认配置", source.defaultBranch || "");
-        form.append(field(source.name + (source.warning ? " · " + source.warning : ""), control));
+        control.setAttribute("aria-label", source.name + "运行分支");
+        form.append(field(source.name + (source.isBranchMode ? " · 运行分支（可多选）" : " · 运行分支"), control));
+        if (source.warning) form.append(node("div", "dyx-note", source.warning));
         sourceFields.push({ source: source, control: control });
       });
-      var envInput = input("textarea", "每行 KEY=VALUE，例如 NODE_ENV=production");
-      var commentInput = input("text", "本次运行备注");
-      form.append(field("环境变量", envInput), field("备注", commentInput)); dialog.body.append(form);
+      if (!sourceFields.length) form.append(empty("没有可配置的代码源", "将使用流水线默认配置运行。"));
+      var commentInput = input("textarea", "可选，填写本次运行备注");
+      form.append(field("运行备注", commentInput)); dialog.body.append(form);
       dialog.foot.textContent = ""; dialog.foot.append(button("取消", "", dialog.close), button("确认运行", "primary", function (event) {
-        if (!window.confirm("确认手动触发流水线“" + pipeline.name + "”？")) return;
         var runningBranches = {}; var branchModeBranches = [];
         sourceFields.forEach(function (entry) {
+          if (entry.source.isBranchMode && entry.control.multiple) {
+            Array.from(entry.control.selectedOptions).forEach(function (option) { if (option.value.trim()) branchModeBranches.push(option.value.trim()); });
+            return;
+          }
           var value = entry.control.value.trim(); if (!value) return;
           if (entry.source.isBranchMode) branchModeBranches.push(value); else if (entry.source.repo) runningBranches[entry.source.repo] = value;
         });
-        var envs = {};
-        envInput.value.split(/\r?\n/).forEach(function (line) { var index = line.indexOf("="); if (index > 0) { var key = line.slice(0, index).trim(); var value = line.slice(index + 1).trim(); if (key && value) envs[key] = value; } });
         var submit = event.currentTarget; submit.disabled = true;
-        rpc("pipeline.run.create", rpcArgs({ pipelineId: pipeline.id, branchModeBranches: branchModeBranches, runningBranches: runningBranches, envs: envs, comment: commentInput.value })).then(function (result) {
+        rpc("pipeline.run.create", rpcArgs({ pipelineId: pipeline.id, branchModeBranches: branchModeBranches, runningBranches: runningBranches, comment: commentInput.value })).then(function (result) {
           dialog.close(); toast("流水线已开始运行，实例 #" + result.pipelineRunId); loadPipelines();
         }).catch(function (error) { toast(error.message, true); }).finally(function () { submit.disabled = false; });
       }));
