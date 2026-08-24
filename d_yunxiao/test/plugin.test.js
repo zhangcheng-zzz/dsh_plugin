@@ -26,6 +26,9 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(source, /\.dyx-right-panel\{[^}]*width:480px/);
   assert.match(source, /data-dyx-workspace-open/);
   assert.match(source, /defect\.statuses/);
+  assert.match(source, /defect\.comment\.create/);
+  assert.match(source, /发布评论/);
+  assert.match(source, /event\.ctrlKey \|\| event\.metaKey/);
   assert.match(source, /assignedToId/);
   assert.match(source, /dyx-inline-status/);
   const runForm = source.slice(source.indexOf("function openRunPipeline"), source.indexOf("function openPipelineRun"));
@@ -111,6 +114,7 @@ test("RPC uses current account/project and falls back to persisted list cache", 
   await store.selectProject(account.id, { id: "p1", name: "项目一" });
 
   let fail = false;
+  const createdComments = [];
   const api = {
     listProjects: async () => [{ id: "p1", name: "项目一" }],
     listDefects: async (_account, projectId) => {
@@ -121,6 +125,10 @@ test("RPC uses current account/project and falls back to persisted list cache", 
     getDefect: async () => ({}),
     getDefectStatuses: async () => [],
     updateDefectStatus: async () => ({}),
+    createDefectComment: async (_account, projectId, defectId, content) => {
+      createdComments.push({ projectId, defectId, content });
+      return { id: "comment-1", projectId, defectId };
+    },
     getPipeline: async () => ({}),
     listPipelineBranches: async () => [],
     listPipelineRuns: async () => ({ items: [] }),
@@ -133,6 +141,11 @@ test("RPC uses current account/project and falls back to persisted list cache", 
   const fresh = await rpc("defects.list", {});
   assert.equal(fresh.items[0].projectId, "p1");
   assert.equal(fresh.stale, false);
+
+  const comment = await rpc("defect.comment.create", { defectId: "bug-1", content: "  请验证修复。  " });
+  assert.equal(comment.id, "comment-1");
+  assert.deepEqual(createdComments, [{ projectId: "p1", defectId: "bug-1", content: "请验证修复。" }]);
+  await assert.rejects(() => rpc("defect.comment.create", { defectId: "bug-1", content: "   " }), /评论内容不能为空/);
 
   fail = true;
   const cached = await rpc("defects.list", {});
@@ -262,6 +275,31 @@ test("API client reads workflow statuses without loading comments and updates li
   const updateCall = calls.find((item) => item.method === "PUT");
   assert.deepEqual(JSON.parse(updateCall.body), { status: "done" });
   assert.equal(updated.statusId, "done");
+});
+
+test("API client creates a defect comment with the official work-item contract", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  t.after(() => { globalThis.fetch = previousFetch; });
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(JSON.stringify({ id: "comment-1" }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  };
+  const client = createApiClient({ apiBaseUrl: "https://openapi-rdc.aliyuncs.com", timeoutMs: 5000 });
+  const created = await client.createDefectComment(
+    { organizationId: "org-1", token: "token" },
+    "project-1",
+    "bug/1",
+    "  已完成修复，请验证。  "
+  );
+
+  assert.match(calls[0].url, /workitems\/bug%2F1\/comments$/);
+  assert.equal(calls[0].options.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].options.body), { content: "已完成修复，请验证。" });
+  assert.deepEqual(created, { id: "comment-1", projectId: "project-1", defectId: "bug/1" });
 });
 
 test("pipeline branches support nested pipelineConfig sources and run payload omits envs", async (t) => {

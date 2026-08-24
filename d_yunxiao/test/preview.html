@@ -18,6 +18,7 @@
     };
     const defects = [{ projectId: 'project-1', id: 'bug-1', serialNumber: 'BUG-128', subject: '登录页偶发验证码刷新失败', statusId: 'doing', statusName: '处理中', assignedToId: 'u1', assignedToName: '张三', creatorName: '李四', sprintName: 'Sprint 18', priority: 'P1', severity: '严重', gmtCreate: '2026-08-24T08:00:00Z', gmtModified: '2026-08-24T08:25:00Z' }, { projectId: 'project-1', id: 'bug-2', serialNumber: 'BUG-127', subject: '导出报表的日期时区不正确', statusId: 'todo', statusName: '待处理', assignedToId: 'u2', assignedToName: '王五', priority: 'P2', gmtCreate: '2026-08-23T12:00:00Z', gmtModified: '2026-08-23T13:00:00Z' }];
     const statuses = [{ id: 'todo', name: '待处理' }, { id: 'doing', name: '处理中' }, { id: 'done', name: '已完成' }];
+    const defectComments = [{ id: 'c1', userName: '张三', content: '<p>已定位到缓存键冲突，修复中。</p>', contentFormat: 'RICHTEXT', gmtCreate: '2026-08-24T07:30:00Z' }];
     const pipelines = [{ id: '1001', name: '主站生产发布', status: 'SUCCESS', updateTime: 1787531400000 }, { id: '1002', name: 'API 集成测试', status: 'RUNNING', updateTime: 1787531700000 }];
     window.fetch = async (_url, options) => {
       const request = JSON.parse(options.body || '{}');
@@ -30,7 +31,12 @@
         const items = defects.filter(item => (!args.statusId || item.statusId === args.statusId) && (!args.assignedToId || item.assignedToId === args.assignedToId));
         data = { items, total: items.length, page: 1, pageSize: 20, stale: false };
       }
-      else if (method === 'defect.get') data = { defect: defects[0], description: '<p>登录页在网络抖动时，验证码可能停留在旧图片。</p><ul><li>Chrome 复现</li><li>重试后恢复</li></ul>', descriptionFormat: 'RICHTEXT', statuses, comments: [{ id: 'c1', userName: '张三', content: '<p>已定位到缓存键冲突，修复中。</p>', contentFormat: 'RICHTEXT', gmtCreate: '2026-08-24T07:30:00Z' }], attachments: [], warning: '' };
+      else if (method === 'defect.get') data = { defect: defects[0], description: '<p>登录页在网络抖动时，验证码可能停留在旧图片。</p><ul><li>Chrome 复现</li><li>重试后恢复</li></ul>', descriptionFormat: 'RICHTEXT', statuses, comments: defectComments, attachments: [], warning: '' };
+      else if (method === 'defect.comment.create') {
+        const created = { id: 'c' + (defectComments.length + 1), userName: '当前账号', content: request.args.content, contentFormat: 'MARKDOWN', gmtCreate: new Date().toISOString() };
+        defectComments.unshift(created);
+        data = { id: created.id, projectId: 'project-1', defectId: request.args.defectId };
+      }
       else if (method === 'defect.statuses') data = statuses;
       else if (method === 'defect.status.update') {
         const item = defects.find(entry => entry.id === request.args.defectId);

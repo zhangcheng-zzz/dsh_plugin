@@ -424,6 +424,19 @@ function createApiClient(config) {
     return mapDefect(projectId, latest.payload);
   }
 
+  async function createDefectComment(account, projectId, defectId, content) {
+    const api = paths(account);
+    const value = cleanTextPreserve(content, 10_000).trim();
+    if (!value) throw new YunxiaoError("评论内容不能为空", 422);
+    const response = await request(account, `${api.workitems}/${encodeURIComponent(defectId)}/comments`, {
+      method: "POST",
+      body: { content: value }
+    });
+    const id = cleanText(response.payload?.id, 128);
+    if (!id) throw new YunxiaoError("评论已提交，但云效接口未返回评论 ID");
+    return { id, projectId, defectId };
+  }
+
   async function listPipelines(account, query = {}) {
     const api = paths(account);
     const page = clampInteger(query.page, 1, 1, 10_000);
@@ -573,6 +586,7 @@ function createApiClient(config) {
     getDefect,
     getDefectStatuses,
     updateDefectStatus,
+    createDefectComment,
     listPipelines,
     getPipeline,
     listPipelineBranches,
@@ -863,6 +877,14 @@ function createRpc(store, api) {
         const statusId = cleanText(args.statusId, 128);
         if (!defectId || !statusId) throw new YunxiaoError("缺陷 ID 和状态 ID 不能为空", 422);
         return api.updateDefectStatus(account, projectId, defectId, statusId);
+      }
+      case "defect.comment.create": {
+        const { account, projectId } = await accountAndProject(args);
+        const defectId = cleanText(args.defectId, 128);
+        const content = cleanTextPreserve(args.content, 10_000).trim();
+        if (!defectId) throw new YunxiaoError("缺陷 ID 不能为空", 422);
+        if (!content) throw new YunxiaoError("评论内容不能为空", 422);
+        return api.createDefectComment(account, projectId, defectId, content);
       }
       case "pipelines.list": {
         const { account } = await accountAndProject(args);

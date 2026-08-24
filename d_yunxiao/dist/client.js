@@ -51,7 +51,7 @@ var CSS = [
   ".dyx-modal-head,.dyx-modal-foot{padding:15px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}.dyx-modal-head{border-bottom:1px solid var(--dyx-line)}.dyx-modal-head h3{margin:0}.dyx-modal-foot{border-top:1px solid var(--dyx-line);justify-content:flex-end}.dyx-modal-body{padding:18px;overflow:auto}.dyx-form{display:grid;gap:12px}.dyx-two{display:grid;grid-template-columns:1fr 1fr;gap:11px}",
   ".dyx-detail-title{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}.dyx-detail-title h2{margin:0;font-size:20px}.dyx-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:12px 0}.dyx-meta div{padding:9px 11px;border-radius:9px;background:var(--dyx-panel2)}.dyx-meta small{display:block;color:var(--dyx-muted)}",
   ".dyx-rich{line-height:1.75;overflow-wrap:anywhere}.dyx-rich img{max-width:100%;height:auto}.dyx-rich pre,.dyx-log{overflow:auto;padding:13px;border-radius:10px;color:#d1fae5;background:#0f172a;font:12px/1.65 Consolas,Monaco,monospace;white-space:pre-wrap}.dyx-rich table{border-collapse:collapse}.dyx-rich td,.dyx-rich th{border:1px solid var(--dyx-line);padding:6px}",
-  ".dyx-comments{display:grid;gap:10px}.dyx-comment{padding:12px;border:1px solid var(--dyx-line);border-radius:10px}.dyx-comment-head{display:flex;justify-content:space-between;margin-bottom:7px;color:var(--dyx-muted);font-size:12px}",
+  ".dyx-comment-compose{margin-bottom:12px;padding:12px;border:1px solid var(--dyx-line);border-radius:11px;background:var(--dyx-panel2)}.dyx-comment-compose .dyx-textarea{min-height:92px;background:var(--dyx-panel)}.dyx-comment-compose-actions{margin-top:9px;display:flex;align-items:center;justify-content:space-between;gap:10px}.dyx-comment-compose-actions span{color:var(--dyx-muted);font-size:11px}.dyx-comments{display:grid;gap:10px}.dyx-comment{padding:12px;border:1px solid var(--dyx-line);border-radius:10px}.dyx-comment-head{display:flex;justify-content:space-between;margin-bottom:7px;color:var(--dyx-muted);font-size:12px}",
   ".dyx-status-row{display:flex;align-items:end;gap:8px}.dyx-status-row .dyx-field{min-width:180px}.dyx-note{padding:10px 12px;border-radius:9px;color:#a16207;background:rgba(245,158,11,.13)}",
   ".dyx-stage{margin:7px 0;padding:10px 12px;display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:10px;border:1px solid var(--dyx-line);border-radius:9px}.dyx-dot{width:9px;height:9px;border-radius:50%;background:#94a3b8}.dyx-dot.SUCCESS{background:#16a34a}.dyx-dot.RUNNING{background:#f59e0b}.dyx-dot.FAIL,.dyx-dot.FAILED{background:#dc2626}",
   ".dyx-record-list{display:grid;gap:9px}.dyx-record{padding:12px;border:1px solid var(--dyx-line);border-radius:11px;background:var(--dyx-panel2)}.dyx-record-head,.dyx-record-foot{display:flex;align-items:center;justify-content:space-between;gap:9px}.dyx-record-title{margin:9px 0;color:var(--dyx-text);font-size:14px;font-weight:650;line-height:1.45}.dyx-record-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--dyx-muted);font-size:12px}.dyx-record-foot{margin-top:10px;padding-top:9px;border-top:1px solid var(--dyx-line)}",
@@ -616,8 +616,46 @@ function createWorkspace(onRequestClose) {
       detail.attachments.forEach(function (file) { var link = node("a", "dyx-btn", file.fileName); link.href = safeUrl(file.url); link.target = "_blank"; link.rel = "noopener noreferrer"; files.append(link); });
       dialog.body.append(files);
     }
-    if (detail.comments && detail.comments.length) {
-      dialog.body.append(node("h3", "", "评论（" + detail.comments.length + "）"));
+    var commentCount = detail.comments && detail.comments.length || 0;
+    dialog.body.append(node("h3", "", "评论（" + commentCount + "）"));
+    var compose = node("div", "dyx-comment-compose");
+    var commentInput = input("textarea", "输入评论内容，Ctrl/Command + Enter 快速提交", "");
+    commentInput.maxLength = 10000;
+    var publish = button("发布评论", "primary");
+    function submitComment() {
+      var content = commentInput.value.trim();
+      if (!content) return toast("请输入评论内容", true);
+      commentInput.disabled = true;
+      publish.disabled = true;
+      publish.textContent = "发布中…";
+      rpc("defect.comment.create", rpcArgs({ defectId: item.id, content: content })).then(function () {
+        commentInput.value = "";
+        toast("评论已发布");
+        return rpc("defect.get", rpcArgs({ defectId: item.id })).then(function (refreshed) {
+          renderDefectDetail(dialog, refreshed);
+        }).catch(function () {
+          toast("评论已发布，但列表刷新失败，请重新打开缺陷详情", true);
+        });
+      }).catch(function (error) {
+        toast(error.message, true);
+      }).finally(function () {
+        commentInput.disabled = false;
+        publish.disabled = false;
+        publish.textContent = "发布评论";
+      });
+    }
+    publish.addEventListener("click", submitComment);
+    commentInput.addEventListener("keydown", function (event) {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault();
+        submitComment();
+      }
+    });
+    var composeActions = node("div", "dyx-comment-compose-actions");
+    composeActions.append(node("span", "", "将以当前云效账号身份发布 · 最多 10000 字"), publish);
+    compose.append(commentInput, composeActions);
+    dialog.body.append(compose);
+    if (commentCount) {
       var comments = node("div", "dyx-comments");
       detail.comments.forEach(function (comment) {
         var card = node("div", "dyx-comment");
@@ -626,7 +664,7 @@ function createWorkspace(onRequestClose) {
         card.append(head, content); comments.append(card);
       });
       dialog.body.append(comments);
-    }
+    } else dialog.body.append(empty("暂无评论", "发布第一条评论。"));
     dialog.foot.textContent = ""; dialog.foot.append(button("关闭", "", dialog.close));
   }
 

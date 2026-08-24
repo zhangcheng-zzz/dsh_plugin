@@ -1,6 +1,6 @@
 {
   "name": "dsh-yunxiao",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "轻量云效工作台插件：账号与项目、缺陷、流水线，使用 JSON 文本持久化且不接收消息回调。",
   "type": "module",
   "main": "dist/index.js",
