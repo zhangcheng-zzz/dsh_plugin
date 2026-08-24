@@ -14,7 +14,8 @@ var CSS = [
   "@media(prefers-color-scheme:dark){:root{--dyx-bg:#0d1117;--dyx-panel:#141b24;--dyx-panel2:#101720;--dyx-text:#e6edf3;--dyx-muted:#8b9bb0;--dyx-line:#2b3543;--dyx-brand:#65a3ff;--dyx-brand2:#39c5ad;--dyx-danger:#ff7b72;--dyx-shadow:0 22px 70px rgba(0,0,0,.5)}}",
   ".dyx-root,.dyx-root *{box-sizing:border-box}",
   ".dyx-slot-host{width:100%;height:100%;min-height:0}",
-  ".dyx-right-panel{position:absolute;inset:0 0 0 auto;width:360px;min-width:0;overflow:hidden;pointer-events:auto;background:var(--dyx-bg);box-shadow:-12px 0 32px rgba(15,23,42,.08)}",
+  ".dyx-right-panel{position:absolute;inset:0 0 0 auto;width:480px;min-width:0;overflow:hidden;pointer-events:auto;background:var(--dyx-bg);box-shadow:-12px 0 32px rgba(15,23,42,.08)}",
+  "[data-dyx-workspace-open='true']{grid-template-columns:var(--dyx-sidebar-track,280px) minmax(0,1fr) 480px!important}[data-dyx-workspace-open='true'] [data-side='details']{left:calc(100% - 480px)!important}",
   ".dyx-preview-host{position:fixed;inset:12px 12px 12px auto;width:min(520px,calc(100vw - 24px));z-index:2147482500;overflow:hidden;border-radius:16px;box-shadow:var(--dyx-shadow)}",
   ".dyx-root{position:relative;width:100%;height:100%;min-height:0;container-type:inline-size;font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;color:var(--dyx-text);pointer-events:auto}",
   ".dyx-sidebar-trigger{width:100%;min-height:36px;padding:8px 10px;display:flex;align-items:center;justify-content:center;gap:9px;border:0;border-radius:9px;color:inherit;background:transparent;cursor:pointer;font:inherit}.dyx-sidebar-trigger:hover{color:#2563eb;background:rgba(37,99,235,.1)}.dyx-sidebar-trigger[data-wide='true']{justify-content:flex-start}.dyx-sidebar-trigger-mark{width:22px;height:22px;display:grid;place-items:center;border-radius:7px;color:#fff;background:linear-gradient(135deg,#2563eb,#0f766e);font-size:11px;font-weight:800}",
@@ -39,6 +40,7 @@ var CSS = [
   ".dyx-field{display:grid;gap:5px}.dyx-field label{color:var(--dyx-muted);font-size:12px}.dyx-input,.dyx-select,.dyx-textarea{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-text);background:var(--dyx-panel);outline:0;font:inherit}.dyx-input:focus,.dyx-select:focus,.dyx-textarea:focus{border-color:var(--dyx-brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--dyx-brand) 13%,transparent)}.dyx-textarea{min-height:84px;resize:vertical}.dyx-select[multiple]{min-height:112px;padding:6px}.dyx-select[multiple] option{padding:7px 8px;border-radius:6px}",
   ".dyx-project-row{display:grid;grid-template-columns:1fr;gap:9px}.dyx-current{margin-top:12px;padding:12px;border-radius:10px;color:var(--dyx-muted);background:var(--dyx-panel2)}.dyx-current strong{color:var(--dyx-text)}",
   ".dyx-tools{margin-bottom:13px;display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:end}",
+  ".dyx-defect-filters{margin-bottom:13px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.dyx-filter-control{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:5px}.dyx-filter-clear{width:30px;min-height:38px;padding:0;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-muted);background:var(--dyx-panel);cursor:pointer;font:18px/1 inherit}.dyx-filter-clear:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-filter-clear[hidden]{visibility:hidden;display:block}",
   ".dyx-table-wrap{overflow:auto;border:1px solid var(--dyx-line);border-radius:11px}.dyx-table{width:100%;border-collapse:collapse;min-width:760px}.dyx-table th,.dyx-table td{padding:11px 12px;border-bottom:1px solid var(--dyx-line);text-align:left;vertical-align:middle}.dyx-table th{position:sticky;top:0;z-index:1;color:var(--dyx-muted);background:var(--dyx-panel2);font-size:12px;white-space:nowrap}.dyx-table tr:last-child td{border-bottom:0}.dyx-table tbody tr:hover{background:color-mix(in srgb,var(--dyx-brand) 5%,transparent)}",
   ".dyx-link{padding:0;border:0;color:var(--dyx-brand);background:transparent;cursor:pointer;font:inherit;text-align:left}.dyx-subject{max-width:480px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dyx-muted{color:var(--dyx-muted)}",
   ".dyx-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;color:var(--dyx-muted);background:var(--dyx-panel2);font-size:12px;white-space:nowrap}.dyx-badge.ok{color:#138a4b;background:rgba(34,197,94,.12)}.dyx-badge.run{color:#b77900;background:rgba(245,158,11,.14)}.dyx-badge.fail{color:var(--dyx-danger);background:rgba(239,68,68,.12)}",
@@ -172,7 +174,7 @@ function createWorkspace(onRequestClose) {
     tab: "overview",
     projects: [],
     defects: { items: [], total: 0, page: 1, pageSize: PAGE_SIZE },
-    defectFilters: { serialNumber: "", subject: "", statusId: "", assignedToId: "" },
+    defectFilters: { statusId: "", assignedToId: "" },
     defectStatusOptions: [],
     defectAssigneeOptions: [],
     defectStatuses: {},
@@ -389,9 +391,7 @@ function createWorkspace(onRequestClose) {
     section.append(title);
     if (!renderRequirement(section)) { main.append(section); return; }
     var card = node("div", "dyx-card");
-    var tools = node("div", "dyx-tools");
-    var serial = input("text", "如 BUG-12", state.defectFilters.serialNumber);
-    var subject = input("text", "标题关键词", state.defectFilters.subject);
+    var tools = node("div", "dyx-defect-filters");
     var status = node("select", "dyx-select");
     status.setAttribute("aria-label", "按状态筛选");
     status.append(node("option", "", "全部状态"));
@@ -404,22 +404,32 @@ function createWorkspace(onRequestClose) {
     assignee.value = state.defectFilters.assignedToId;
     defectStatusFilterControl = status;
     defectAssigneeFilterControl = assignee;
-    tools.append(field("缺陷编号", serial), field("标题", subject), field("状态", status), field("负责人", assignee));
-    tools.append(button("查询", "primary", function () {
-      state.defectFilters.serialNumber = serial.value.trim();
-      state.defectFilters.subject = subject.value.trim();
-      state.defectFilters.statusId = status.value;
-      state.defectFilters.assignedToId = assignee.value;
+    function autoQuery() {
       state.defects.page = 1;
       loadDefects();
-    }), button("清空", "", function () {
-      state.defectFilters = { serialNumber: "", subject: "", statusId: "", assignedToId: "" };
-      state.defectStatusOptions = [];
-      state.defectAssigneeOptions = [];
-      state.defectStatuses = {};
-      state.defects.page = 1;
-      loadDefects();
-    }));
+    }
+    function filterWithClear(select, key, label) {
+      var wrap = node("div", "dyx-filter-control");
+      var clear = node("button", "dyx-filter-clear", "×");
+      clear.type = "button";
+      clear.setAttribute("aria-label", "清空" + label);
+      clear.hidden = !select.value;
+      select.addEventListener("change", function () {
+        state.defectFilters[key] = select.value;
+        clear.hidden = !select.value;
+        autoQuery();
+      });
+      clear.addEventListener("click", function () {
+        if (!select.value) return;
+        select.value = "";
+        state.defectFilters[key] = "";
+        clear.hidden = true;
+        autoQuery();
+      });
+      wrap.append(select, clear);
+      return wrap;
+    }
+    tools.append(field("状态", filterWithClear(status, "statusId", "状态")), field("负责人", filterWithClear(assignee, "assignedToId", "负责人")));
     card.append(tools);
     if (state.defects.stale) card.append(node("div", "dyx-stale", "云效暂时不可用，当前为 " + formatDate(state.defects.cachedAt) + " 的缓存。"));
     if (!state.defects.items.length) card.append(empty("暂无缺陷", "可调整关键词后重新查询。"));
@@ -539,8 +549,6 @@ function createWorkspace(onRequestClose) {
     rpc("defects.list", rpcArgs({
       page: state.defects.page,
       pageSize: state.defects.pageSize,
-      serialNumber: state.defectFilters.serialNumber,
-      subject: state.defectFilters.subject,
       statusId: state.defectFilters.statusId,
       assignedToId: state.defectFilters.assignedToId
     })).then(function (result) {
@@ -877,14 +885,32 @@ function apply(ctx) {
 
   var panelOpen = false;
   var panelListeners = new Set();
+  var workspaceFrame = null;
+  function widenWorkspaceFrame() {
+    requestAnimationFrame(function () {
+      var overlay = document.querySelector("[data-shell-overlay]");
+      var frame = overlay && overlay.parentElement;
+      if (!frame) return;
+      var match = String(frame.style.gridTemplateColumns || "").match(/^([\d.]+px)/);
+      frame.style.setProperty("--dyx-sidebar-track", match ? match[1] : "280px");
+      frame.setAttribute("data-dyx-workspace-open", "true");
+      workspaceFrame = frame;
+    });
+  }
+  function restoreWorkspaceFrame() {
+    if (!workspaceFrame) return;
+    workspaceFrame.removeAttribute("data-dyx-workspace-open");
+    workspaceFrame.style.removeProperty("--dyx-sidebar-track");
+    workspaceFrame = null;
+  }
   function setPanelOpen(open) {
     var next = Boolean(open);
     if (panelOpen !== next) {
       panelOpen = next;
       panelListeners.forEach(function (listener) { listener(panelOpen); });
     }
-    if (panelOpen) ctx.layout.openDetails();
-    else ctx.layout.closeDetails();
+    if (panelOpen) { ctx.layout.openDetails(); widenWorkspaceFrame(); }
+    else { restoreWorkspaceFrame(); ctx.layout.closeDetails(); }
   }
 
   function RightWorkspace() {
@@ -936,6 +962,7 @@ function apply(ctx) {
   ctx.effect(function () { return function () {
     panelOpen = false;
     panelListeners.clear();
+    restoreWorkspaceFrame();
     ctx.layout.closeDetails();
     if (!existingStyle) style.remove();
   }; }, "dsh-yunxiao: reserved right workspace");
