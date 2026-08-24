@@ -40,7 +40,7 @@ var CSS = [
   ".dyx-field{display:grid;gap:5px}.dyx-field label{color:var(--dyx-muted);font-size:12px}.dyx-input,.dyx-select,.dyx-textarea{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-text);background:var(--dyx-panel);outline:0;font:inherit}.dyx-input:focus,.dyx-select:focus,.dyx-textarea:focus{border-color:var(--dyx-brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--dyx-brand) 13%,transparent)}.dyx-textarea{min-height:84px;resize:vertical}.dyx-select[multiple]{min-height:112px;padding:6px}.dyx-select[multiple] option{padding:7px 8px;border-radius:6px}",
   ".dyx-project-row{display:grid;grid-template-columns:1fr;gap:9px}.dyx-current{margin-top:12px;padding:12px;border-radius:10px;color:var(--dyx-muted);background:var(--dyx-panel2)}.dyx-current strong{color:var(--dyx-text)}",
   ".dyx-tools{margin-bottom:13px;display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:end}",
-  ".dyx-defect-filters{margin-bottom:13px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.dyx-filter-control{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:5px}.dyx-filter-clear{width:30px;min-height:38px;padding:0;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-muted);background:var(--dyx-panel);cursor:pointer;font:18px/1 inherit}.dyx-filter-clear:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-filter-clear[hidden]{visibility:hidden;display:block}",
+  ".dyx-defect-filters{margin-bottom:13px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.dyx-filter-control{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:5px}.dyx-filter-clear{width:30px;min-height:38px;padding:0;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-muted);background:var(--dyx-panel);cursor:pointer;font-family:inherit;font-size:18px;line-height:1}.dyx-filter-clear:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-filter-clear[hidden]{visibility:hidden;display:block}",
   ".dyx-table-wrap{overflow:auto;border:1px solid var(--dyx-line);border-radius:11px}.dyx-table{width:100%;border-collapse:collapse;min-width:760px}.dyx-table th,.dyx-table td{padding:11px 12px;border-bottom:1px solid var(--dyx-line);text-align:left;vertical-align:middle}.dyx-table th{position:sticky;top:0;z-index:1;color:var(--dyx-muted);background:var(--dyx-panel2);font-size:12px;white-space:nowrap}.dyx-table tr:last-child td{border-bottom:0}.dyx-table tbody tr:hover{background:color-mix(in srgb,var(--dyx-brand) 5%,transparent)}",
   ".dyx-link{padding:0;border:0;color:var(--dyx-brand);background:transparent;cursor:pointer;font:inherit;text-align:left}.dyx-subject{max-width:480px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dyx-muted{color:var(--dyx-muted)}",
   ".dyx-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;color:var(--dyx-muted);background:var(--dyx-panel2);font-size:12px;white-space:nowrap}.dyx-badge.ok{color:#138a4b;background:rgba(34,197,94,.12)}.dyx-badge.run{color:#b77900;background:rgba(245,158,11,.14)}.dyx-badge.fail{color:var(--dyx-danger);background:rgba(239,68,68,.12)}",
@@ -191,6 +191,7 @@ function createWorkspace(onRequestClose) {
   var navButtons = {};
   var defectStatusFilterControl;
   var defectAssigneeFilterControl;
+  var defectLoadRevision = 0;
 
   function selectedAccount() {
     return state.server.accounts.find(function (item) { return item.id === state.server.selectedAccountId; }) || null;
@@ -545,6 +546,7 @@ function createWorkspace(onRequestClose) {
 
   function loadDefects() {
     if (!selectedProject()) return render();
+    var revision = ++defectLoadRevision;
     setBusy(main, true);
     rpc("defects.list", rpcArgs({
       page: state.defects.page,
@@ -552,10 +554,11 @@ function createWorkspace(onRequestClose) {
       statusId: state.defectFilters.statusId,
       assignedToId: state.defectFilters.assignedToId
     })).then(function (result) {
+      if (revision !== defectLoadRevision) return;
       state.defects = result;
       mergeDefectOptions(result.items);
       render();
-    }).catch(function (error) { toast(error.message, true); }).finally(function () { setBusy(main, false); });
+    }).catch(function (error) { if (revision === defectLoadRevision) toast(error.message, true); }).finally(function () { if (revision === defectLoadRevision) setBusy(main, false); });
   }
 
   function openDefect(item) {
@@ -707,13 +710,15 @@ function createWorkspace(onRequestClose) {
       var form = node("div", "dyx-form");
       var sourceFields = [];
       (sources || []).forEach(function (source) {
-        var control;
-        if (source.branches && source.branches.length) {
-          control = node("select", "dyx-select");
-          if (source.isBranchMode) { control.multiple = true; control.size = Math.min(5, Math.max(3, source.branches.length)); }
-          else { var blank = node("option", "", "使用默认配置"); blank.value = ""; control.append(blank); }
-          source.branches.forEach(function (branch) { var option = node("option", "", branch); option.value = branch; option.selected = branch === source.defaultBranch; control.append(option); });
-        } else control = input("text", "留空使用默认配置", source.defaultBranch || "");
+        var control = node("select", "dyx-select");
+        var branches = Array.from(new Set([source.defaultBranch].concat(source.branches || []).filter(Boolean)));
+        if (source.isBranchMode) { control.multiple = true; control.size = Math.min(5, Math.max(3, branches.length)); }
+        else { var blank = node("option", "", "使用流水线默认配置"); blank.value = ""; control.append(blank); }
+        if (branches.length) {
+          branches.forEach(function (branch) { var option = node("option", "", branch); option.value = branch; option.selected = branch === source.defaultBranch; control.append(option); });
+        } else {
+          var unavailable = node("option", "", "暂无可用分支"); unavailable.value = ""; unavailable.disabled = true; unavailable.selected = true; control.append(unavailable); control.disabled = true;
+        }
         control.setAttribute("aria-label", source.name + "运行分支");
         form.append(field(source.name + (source.isBranchMode ? " · 运行分支（可多选）" : " · 运行分支"), control));
         if (source.warning) form.append(node("div", "dyx-note", source.warning));

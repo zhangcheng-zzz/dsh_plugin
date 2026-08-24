@@ -23,15 +23,24 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(source, /layout\.openDetails\(\)/);
   assert.match(source, /layout\.closeDetails\(\)/);
   assert.match(source, /dyx-right-panel/);
+  assert.match(source, /\.dyx-right-panel\{[^}]*width:480px/);
+  assert.match(source, /data-dyx-workspace-open/);
   assert.match(source, /defect\.statuses/);
   assert.match(source, /assignedToId/);
   assert.match(source, /dyx-inline-status/);
   const runForm = source.slice(source.indexOf("function openRunPipeline"), source.indexOf("function openPipelineRun"));
   assert.match(runForm, /pipeline\.branches/);
   assert.match(runForm, /运行分支/);
+  assert.match(runForm, /var control = node\("select", "dyx-select"\)/);
+  assert.doesNotMatch(runForm, /留空使用默认配置/);
   assert.doesNotMatch(runForm, /window\.confirm|环境变量|envInput|envs:/);
   assert.doesNotMatch(source, /dyx-launch/);
   assert.doesNotMatch(source, /ctx\.slots\.register\(\{ name: "details" \}/);
+  const defectFilters = source.slice(source.indexOf("function renderDefects"), source.indexOf("function defectTable"));
+  assert.match(defectFilters, /dyx-defect-filters/);
+  assert.match(defectFilters, /清空" \+ label/);
+  assert.match(defectFilters, /select\.addEventListener\("change"/);
+  assert.doesNotMatch(defectFilters, /缺陷编号|标题关键词|button\("查询"|button\("清空"/);
 });
 
 test("plugin apply registers two tools and the Web RPC route", async (t) => {
