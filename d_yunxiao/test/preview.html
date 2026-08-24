@@ -16,7 +16,7 @@
       accounts: [{ id: 'account-1', name: '研发账号', organizationId: 'org-demo', remark: '本地预览数据', hasToken: true, selectedProject: { id: 'project-1', name: '研发中台' }, createdAt: '2026-08-24T01:00:00Z', updatedAt: '2026-08-24T01:00:00Z' }],
       dataFile: 'D:/preview/dsh-yunxiao.data.json'
     };
-    const defects = [{ projectId: 'project-1', id: 'bug-1', serialNumber: 'BUG-128', subject: '登录页偶发验证码刷新失败', statusId: 'doing', statusName: '处理中', assignedToId: 'u1', assignedToName: '张三', creatorName: '李四', sprintName: 'Sprint 18', priority: 'P1', severity: '严重', gmtModified: '2026-08-24T08:25:00Z' }, { projectId: 'project-1', id: 'bug-2', serialNumber: 'BUG-127', subject: '导出报表的日期时区不正确', statusId: 'todo', statusName: '待处理', assignedToId: 'u2', assignedToName: '王五', priority: 'P2', gmtModified: '2026-08-23T13:00:00Z' }];
+    const defects = [{ projectId: 'project-1', id: 'bug-1', serialNumber: 'BUG-128', subject: '登录页偶发验证码刷新失败', statusId: 'doing', statusName: '处理中', assignedToId: 'u1', assignedToName: '张三', creatorName: '李四', sprintName: 'Sprint 18', priority: 'P1', severity: '严重', gmtCreate: '2026-08-24T08:00:00Z', gmtModified: '2026-08-24T08:25:00Z' }, { projectId: 'project-1', id: 'bug-2', serialNumber: 'BUG-127', subject: '导出报表的日期时区不正确', statusId: 'todo', statusName: '待处理', assignedToId: 'u2', assignedToName: '王五', priority: 'P2', gmtCreate: '2026-08-23T12:00:00Z', gmtModified: '2026-08-23T13:00:00Z' }];
     const statuses = [{ id: 'todo', name: '待处理' }, { id: 'doing', name: '处理中' }, { id: 'done', name: '已完成' }];
     const pipelines = [{ id: '1001', name: '主站生产发布', status: 'SUCCESS', updateTime: 1787531400000 }, { id: '1002', name: 'API 集成测试', status: 'RUNNING', updateTime: 1787531700000 }];
     window.fetch = async (_url, options) => {

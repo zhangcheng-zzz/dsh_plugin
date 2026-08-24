@@ -101,6 +101,12 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
 }
 
+function dateValue(value) {
+  if (value === null || value === undefined || value === "") return 0;
+  var date = typeof value === "number" || /^\d{13}$/.test(String(value)) ? new Date(Number(value)) : new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
 function statusClass(status) {
   var normalized = String(status || "").toUpperCase();
   if (["SUCCESS", "DONE", "FINISHED", "已完成"].indexOf(normalized) >= 0) return "ok";
@@ -112,7 +118,8 @@ function statusClass(status) {
 function rpc(method, args) {
   return fetch("/api/d-yunxiao/rpc", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    cache: "no-store",
+    headers: { "content-type": "application/json", "cache-control": "no-cache" },
     body: JSON.stringify({ method: method, args: args || {} })
   }).then(function (response) {
     return response.text().then(function (text) {
@@ -387,7 +394,7 @@ function createWorkspace(onRequestClose) {
     var section = node("section", "dyx-section");
     var title = node("div", "dyx-title");
     var copy = node("div");
-    copy.append(node("h2", "", "缺陷"), node("p", "", "实时读取云效工作项，列表会保留最后一次成功结果作为离线缓存。"));
+    copy.append(node("h2", "", "缺陷"), node("p", "", "实时读取云效工作项，按创建时间从新到旧排列；接口不可用时才显示离线缓存。"));
     title.append(copy, button("刷新", "", loadDefects));
     section.append(title);
     if (!renderRequirement(section)) { main.append(section); return; }
@@ -395,12 +402,12 @@ function createWorkspace(onRequestClose) {
     var tools = node("div", "dyx-defect-filters");
     var status = node("select", "dyx-select");
     status.setAttribute("aria-label", "按状态筛选");
-    status.append(node("option", "", "全部状态"));
+    status.append(node("option", "", "请选择状态"));
     state.defectStatusOptions.forEach(function (item) { var option = node("option", "", item.name); option.value = item.id; status.append(option); });
     status.value = state.defectFilters.statusId;
     var assignee = node("select", "dyx-select");
     assignee.setAttribute("aria-label", "按负责人筛选");
-    assignee.append(node("option", "", "全部负责人"));
+    assignee.append(node("option", "", "请选择负责人"));
     state.defectAssigneeOptions.forEach(function (item) { var option = node("option", "", item.name); option.value = item.id; assignee.append(option); });
     assignee.value = state.defectFilters.assignedToId;
     defectStatusFilterControl = status;
@@ -458,7 +465,7 @@ function createWorkspace(onRequestClose) {
       var meta = node("div", "dyx-record-meta");
       meta.append(node("span", "", "负责人 " + (item.assignedToName || "未分配")), node("span", "", "·"), node("span", "", item.priority || item.severity || "未定级"));
       var foot = node("div", "dyx-record-foot");
-      foot.append(node("span", "dyx-muted", formatDate(item.gmtModified)), button("查看详情", "", function () { openDefect(item); }));
+      foot.append(node("span", "dyx-muted", "创建 " + formatDate(item.gmtCreate || item.gmtModified)), button("查看详情", "", function () { openDefect(item); }));
       card.append(head, title, meta, foot);
       wrap.append(card);
     });
@@ -478,14 +485,14 @@ function createWorkspace(onRequestClose) {
     if (defectStatusFilterControl && defectStatusFilterControl.isConnected) {
       var selectedStatus = defectStatusFilterControl.value;
       defectStatusFilterControl.textContent = "";
-      defectStatusFilterControl.append(node("option", "", "全部状态"));
+      defectStatusFilterControl.append(node("option", "", "请选择状态"));
       state.defectStatusOptions.forEach(function (item) { var option = node("option", "", item.name); option.value = item.id; defectStatusFilterControl.append(option); });
       defectStatusFilterControl.value = selectedStatus;
     }
     if (defectAssigneeFilterControl && defectAssigneeFilterControl.isConnected) {
       var selectedAssignee = defectAssigneeFilterControl.value;
       defectAssigneeFilterControl.textContent = "";
-      defectAssigneeFilterControl.append(node("option", "", "全部负责人"));
+      defectAssigneeFilterControl.append(node("option", "", "请选择负责人"));
       state.defectAssigneeOptions.forEach(function (item) { var option = node("option", "", item.name); option.value = item.id; defectAssigneeFilterControl.append(option); });
       defectAssigneeFilterControl.value = selectedAssignee;
     }
@@ -555,6 +562,9 @@ function createWorkspace(onRequestClose) {
       assignedToId: state.defectFilters.assignedToId
     })).then(function (result) {
       if (revision !== defectLoadRevision) return;
+      result.items = (result.items || []).slice().sort(function (left, right) {
+        return dateValue(right.gmtCreate || right.gmtModified) - dateValue(left.gmtCreate || left.gmtModified);
+      });
       state.defects = result;
       mergeDefectOptions(result.items);
       render();

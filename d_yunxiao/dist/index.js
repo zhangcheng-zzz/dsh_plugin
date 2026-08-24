@@ -223,11 +223,16 @@ function createApiClient(config) {
     for (const [key, value] of Object.entries(options.query || {})) {
       if (value !== "" && value !== undefined && value !== null) url.searchParams.set(key, String(value));
     }
-    const headers = { "content-type": "application/json", "x-yunxiao-token": account.token };
+    const headers = {
+      "content-type": "application/json",
+      "cache-control": "no-cache",
+      "x-yunxiao-token": account.token
+    };
     let response;
     try {
       response = await fetch(url, {
         method: options.method || "GET",
+        cache: "no-store",
         headers,
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
         signal: options.signal || AbortSignal.timeout(config.timeoutMs)
@@ -315,7 +320,7 @@ function createApiClient(config) {
       body: {
         category: "Bug",
         conditions: JSON.stringify({ conditionGroups: filters.length ? [filters] : [] }),
-        orderBy: "gmtModified",
+        orderBy: "gmtCreate",
         page,
         perPage: pageSize,
         sort: "desc",

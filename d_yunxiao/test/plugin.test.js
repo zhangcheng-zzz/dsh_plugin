@@ -39,8 +39,12 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   const defectFilters = source.slice(source.indexOf("function renderDefects"), source.indexOf("function defectTable"));
   assert.match(defectFilters, /dyx-defect-filters/);
   assert.match(defectFilters, /清空" \+ label/);
+  assert.match(defectFilters, /请选择状态/);
+  assert.match(defectFilters, /请选择负责人/);
   assert.match(defectFilters, /select\.addEventListener\("change"/);
-  assert.doesNotMatch(defectFilters, /缺陷编号|标题关键词|button\("查询"|button\("清空"/);
+  assert.doesNotMatch(defectFilters, /全部状态|全部负责人|缺陷编号|标题关键词|button\("查询"|button\("清空"/);
+  assert.match(source, /cache: "no-store"/);
+  assert.match(source, /dateValue\(right\.gmtCreate \|\| right\.gmtModified\) - dateValue\(left\.gmtCreate \|\| left\.gmtModified\)/);
 });
 
 test("plugin apply registers two tools and the Web RPC route", async (t) => {
@@ -202,7 +206,11 @@ test("API client sends the official defect search contract", async (t) => {
 
   assert.match(calls[0].url, /workitems:search$/);
   assert.equal(calls[0].options.headers["x-yunxiao-token"], "token");
+  assert.equal(calls[0].options.headers["cache-control"], "no-cache");
+  assert.equal(calls[0].options.cache, "no-store");
   const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.orderBy, "gmtCreate");
+  assert.equal(body.sort, "desc");
   const filters = JSON.parse(body.conditions).conditionGroups[0];
   assert.deepEqual(filters.map((item) => [item.fieldIdentifier, item.value[0]]), [
     ["serialNumber", "BUG-12"],
