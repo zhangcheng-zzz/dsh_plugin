@@ -8,14 +8,19 @@ try { ReactRuntime = require("react"); } catch (error) {}
 var STYLE_ID = "dsh-yunxiao-style";
 var ROOT_ID = "dsh-yunxiao-root";
 var PAGE_SIZE = 20;
+var PANEL_WIDTH_STORAGE_KEY = "dsh-yunxiao:panel-width";
+var DEFAULT_PANEL_WIDTH = 480;
+var MIN_PANEL_WIDTH = 380;
+var MAX_PANEL_WIDTH = 860;
 
 var CSS = [
   ":root{--dyx-bg:#f6f7fb;--dyx-panel:#fff;--dyx-panel2:#f8fafc;--dyx-text:#172033;--dyx-muted:#64748b;--dyx-line:#e2e8f0;--dyx-brand:#2563eb;--dyx-brand2:#0f766e;--dyx-danger:#dc2626;--dyx-shadow:0 18px 60px rgba(15,23,42,.22)}",
   "@media(prefers-color-scheme:dark){:root{--dyx-bg:#0d1117;--dyx-panel:#141b24;--dyx-panel2:#101720;--dyx-text:#e6edf3;--dyx-muted:#8b9bb0;--dyx-line:#2b3543;--dyx-brand:#65a3ff;--dyx-brand2:#39c5ad;--dyx-danger:#ff7b72;--dyx-shadow:0 22px 70px rgba(0,0,0,.5)}}",
   ".dyx-root,.dyx-root *{box-sizing:border-box}",
   ".dyx-slot-host{width:100%;height:100%;min-height:0}",
-  ".dyx-right-panel{position:absolute;inset:0 0 0 auto;width:480px;min-width:0;overflow:hidden;pointer-events:auto;background:var(--dyx-bg);box-shadow:-12px 0 32px rgba(15,23,42,.08)}",
-  "[data-dyx-workspace-open='true']{grid-template-columns:var(--dyx-sidebar-track,280px) minmax(0,1fr) 480px!important}[data-dyx-workspace-open='true'] [data-side='details']{left:calc(100% - 480px)!important}",
+  ".dyx-right-panel{position:absolute;inset:0 0 0 auto;width:var(--dyx-workspace-width,480px);min-width:0;overflow:hidden;pointer-events:auto;background:var(--dyx-bg);box-shadow:-12px 0 32px rgba(15,23,42,.08)}",
+  "[data-dyx-workspace-open='true']{grid-template-columns:var(--dyx-sidebar-track,280px) minmax(0,1fr) var(--dyx-workspace-width,480px)!important}[data-dyx-workspace-open='true'] [data-side='details']{left:calc(100% - var(--dyx-workspace-width,480px))!important}",
+  ".dyx-resize-handle{position:absolute;z-index:50;inset:0 auto 0 0;width:10px;cursor:col-resize;touch-action:none;outline:0}.dyx-resize-handle::after{content:'';position:absolute;inset:0 auto 0 0;width:3px;background:transparent;transition:background .15s}.dyx-resize-handle:hover::after,.dyx-resize-handle:focus-visible::after,.dyx-resize-handle.active::after{background:var(--dyx-brand)}.dyx-resizing,.dyx-resizing *{cursor:col-resize!important;user-select:none!important}",
   ".dyx-preview-host{position:fixed;inset:12px 12px 12px auto;width:min(520px,calc(100vw - 24px));z-index:2147482500;overflow:hidden;border-radius:16px;box-shadow:var(--dyx-shadow)}",
   ".dyx-root{position:relative;width:100%;height:100%;min-height:0;container-type:inline-size;font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;color:var(--dyx-text);pointer-events:auto}",
   ".dyx-sidebar-trigger{width:100%;min-height:36px;padding:8px 10px;display:flex;align-items:center;justify-content:center;gap:9px;border:0;border-radius:9px;color:inherit;background:transparent;cursor:pointer;font:inherit}.dyx-sidebar-trigger:hover{color:#2563eb;background:rgba(37,99,235,.1)}.dyx-sidebar-trigger[data-wide='true']{justify-content:flex-start}.dyx-sidebar-trigger-mark{width:22px;height:22px;display:grid;place-items:center;border-radius:7px;color:#fff;background:linear-gradient(135deg,#2563eb,#0f766e);font-size:11px;font-weight:800}",
@@ -105,6 +110,25 @@ function dateValue(value) {
   if (value === null || value === undefined || value === "") return 0;
   var date = typeof value === "number" || /^\d{13}$/.test(String(value)) ? new Date(Number(value)) : new Date(value);
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function readPanelWidth() {
+  try {
+    var value = Number(window.localStorage.getItem(PANEL_WIDTH_STORAGE_KEY));
+    return Number.isFinite(value) && value > 0 ? value : DEFAULT_PANEL_WIDTH;
+  } catch (error) {
+    return DEFAULT_PANEL_WIDTH;
+  }
+}
+
+function savePanelWidth(value) {
+  try { window.localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(Math.round(value))); } catch (error) {}
+}
+
+function clampPanelWidth(value) {
+  var viewport = document.documentElement.clientWidth || window.innerWidth || 1440;
+  var responsiveMax = Math.max(MIN_PANEL_WIDTH, viewport - 640);
+  return Math.round(Math.min(MAX_PANEL_WIDTH, responsiveMax, Math.max(MIN_PANEL_WIDTH, Number(value) || DEFAULT_PANEL_WIDTH)));
 }
 
 function statusClass(status) {
@@ -532,6 +556,7 @@ function createWorkspace(onRequestClose) {
       mergeDefectOptions([updated], state.defectStatuses[item.id]);
       fillListStatusSelect(select, item);
       toast("缺陷状态已更新");
+      loadDefects();
     }).catch(function (error) {
       select.value = previousStatusId || "";
       toast(error.message, true);
@@ -591,16 +616,25 @@ function createWorkspace(onRequestClose) {
       var option = node("option", "", status.name); option.value = status.id; option.selected = status.id === item.statusId; select.append(option);
     });
     if (!detail.statuses || !detail.statuses.length) { var current = node("option", "", item.statusName || "未知状态"); current.value = item.statusId || ""; select.append(current); select.disabled = true; }
-    statusRow.append(field("状态", select), button("保存状态", "primary", function (event) {
-      if (!select.value || select.value === item.statusId) return;
-      var submit = event.currentTarget; submit.disabled = true;
-      rpc("defect.status.update", rpcArgs({ defectId: item.id, statusId: select.value })).then(function (updated) {
+    select.addEventListener("change", function () {
+      var statusId = select.value;
+      if (!statusId || statusId === item.statusId) return;
+      var previousStatusId = item.statusId;
+      select.disabled = true;
+      rpc("defect.status.update", rpcArgs({ defectId: item.id, statusId: statusId })).then(function (updated) {
         detail.defect = updated; item = updated;
         var listed = state.defects.items.find(function (entry) { return entry.id === updated.id; });
         if (listed) Object.assign(listed, updated);
         toast("缺陷状态已更新");
-      }).catch(function (error) { toast(error.message, true); }).finally(function () { submit.disabled = false; });
-    }));
+        loadDefects();
+      }).catch(function (error) {
+        select.value = previousStatusId || "";
+        toast(error.message, true);
+      }).finally(function () {
+        select.disabled = !detail.statuses || !detail.statuses.length;
+      });
+    });
+    statusRow.append(field("状态", select));
     dialog.body.append(statusRow);
     var meta = node("div", "dyx-meta");
     [["负责人", item.assignedToName], ["创建人", item.creatorName], ["迭代", item.sprintName], ["优先级", item.priority || item.severity], ["更新时间", formatDate(item.gmtModified)]].forEach(function (pair) {
@@ -939,6 +973,17 @@ function apply(ctx) {
   var panelOpen = false;
   var panelListeners = new Set();
   var workspaceFrame = null;
+  var preferredPanelWidth = readPanelWidth();
+  var panelWidth = clampPanelWidth(preferredPanelWidth);
+  function applyPanelWidth(value, persist) {
+    panelWidth = clampPanelWidth(value);
+    if (workspaceFrame) workspaceFrame.style.setProperty("--dyx-workspace-width", panelWidth + "px");
+    if (persist) {
+      preferredPanelWidth = panelWidth;
+      savePanelWidth(panelWidth);
+    }
+    return panelWidth;
+  }
   function widenWorkspaceFrame() {
     requestAnimationFrame(function () {
       var overlay = document.querySelector("[data-shell-overlay]");
@@ -946,6 +991,7 @@ function apply(ctx) {
       if (!frame) return;
       var match = String(frame.style.gridTemplateColumns || "").match(/^([\d.]+px)/);
       frame.style.setProperty("--dyx-sidebar-track", match ? match[1] : "280px");
+      frame.style.setProperty("--dyx-workspace-width", panelWidth + "px");
       frame.setAttribute("data-dyx-workspace-open", "true");
       workspaceFrame = frame;
     });
@@ -954,6 +1000,7 @@ function apply(ctx) {
     if (!workspaceFrame) return;
     workspaceFrame.removeAttribute("data-dyx-workspace-open");
     workspaceFrame.style.removeProperty("--dyx-sidebar-track");
+    workspaceFrame.style.removeProperty("--dyx-workspace-width");
     workspaceFrame = null;
   }
   function setPanelOpen(open) {
@@ -982,9 +1029,56 @@ function apply(ctx) {
       return function () { workspace.dispose(); };
     }, [open]);
     if (!open) return null;
+    function beginResize(event) {
+      if (event.button !== undefined && event.button !== 0) return;
+      event.preventDefault();
+      var handle = event.currentTarget;
+      var startX = event.clientX;
+      var startWidth = panelWidth;
+      handle.classList.add("active");
+      document.documentElement.classList.add("dyx-resizing");
+      function move(moveEvent) {
+        applyPanelWidth(startWidth + startX - moveEvent.clientX, false);
+        handle.setAttribute("aria-valuenow", String(panelWidth));
+      }
+      function finish() {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", finish);
+        window.removeEventListener("pointercancel", finish);
+        handle.classList.remove("active");
+        document.documentElement.classList.remove("dyx-resizing");
+        applyPanelWidth(panelWidth, true);
+      }
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", finish);
+      window.addEventListener("pointercancel", finish);
+    }
+    function resizeByKeyboard(event) {
+      var delta = event.key === "ArrowLeft" ? 20 : event.key === "ArrowRight" ? -20 : 0;
+      if (!delta && event.key !== "Home") return;
+      event.preventDefault();
+      var next = event.key === "Home" ? DEFAULT_PANEL_WIDTH : panelWidth + delta;
+      applyPanelWidth(next, true);
+      event.currentTarget.setAttribute("aria-valuenow", String(panelWidth));
+    }
     return ReactRuntime.createElement("div", { className: "dyx-right-panel" },
+      ReactRuntime.createElement("div", {
+        className: "dyx-resize-handle",
+        role: "separator",
+        tabIndex: 0,
+        "aria-label": "调整云效工作台宽度",
+        "aria-orientation": "vertical",
+        "aria-valuemin": MIN_PANEL_WIDTH,
+        "aria-valuemax": MAX_PANEL_WIDTH,
+        "aria-valuenow": panelWidth,
+        onPointerDown: beginResize,
+        onKeyDown: resizeByKeyboard
+      }),
       ReactRuntime.createElement("div", { ref: hostRef, className: "dyx-slot-host" }));
   }
+
+  function onWindowResize() { applyPanelWidth(preferredPanelWidth, false); }
+  window.addEventListener("resize", onWindowResize);
 
   function SidebarTrigger(props) {
     var wide = Boolean(props && props.wide);
@@ -1016,6 +1110,8 @@ function apply(ctx) {
     panelOpen = false;
     panelListeners.clear();
     restoreWorkspaceFrame();
+    window.removeEventListener("resize", onWindowResize);
+    document.documentElement.classList.remove("dyx-resizing");
     ctx.layout.closeDetails();
     if (!existingStyle) style.remove();
   }; }, "dsh-yunxiao: reserved right workspace");

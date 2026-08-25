@@ -23,8 +23,12 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(source, /layout\.openDetails\(\)/);
   assert.match(source, /layout\.closeDetails\(\)/);
   assert.match(source, /dyx-right-panel/);
-  assert.match(source, /\.dyx-right-panel\{[^}]*width:480px/);
+  assert.match(source, /\.dyx-right-panel\{[^}]*width:var\(--dyx-workspace-width,480px\)/);
   assert.match(source, /data-dyx-workspace-open/);
+  assert.match(source, /dsh-yunxiao:panel-width/);
+  assert.match(source, /dyx-resize-handle/);
+  assert.match(source, /onPointerDown: beginResize/);
+  assert.match(source, /localStorage\.setItem/);
   assert.match(source, /defect\.statuses/);
   assert.match(source, /defect\.comment\.create/);
   assert.match(source, /发布评论/);
@@ -48,6 +52,13 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.doesNotMatch(defectFilters, /全部状态|全部负责人|缺陷编号|标题关键词|button\("查询"|button\("清空"/);
   assert.match(source, /cache: "no-store"/);
   assert.match(source, /dateValue\(right\.gmtCreate \|\| right\.gmtModified\) - dateValue\(left\.gmtCreate \|\| left\.gmtModified\)/);
+  const listStatus = source.slice(source.indexOf("function saveListStatus"), source.indexOf("function pager"));
+  assert.match(listStatus, /loadDefects\(\)/);
+  const detailStatusStart = source.indexOf("function renderDefectDetail");
+  const detailStatus = source.slice(detailStatusStart, source.indexOf("var meta = node", detailStatusStart));
+  assert.match(detailStatus, /select\.addEventListener\("change"/);
+  assert.match(detailStatus, /loadDefects\(\)/);
+  assert.doesNotMatch(detailStatus, /保存状态/);
 });
 
 test("plugin apply registers two tools and the Web RPC route", async (t) => {
