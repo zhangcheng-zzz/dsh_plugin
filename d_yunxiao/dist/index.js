@@ -889,42 +889,107 @@ async function showWindowsNotification(title, body, options = {}) {
   const spawnProcess = options.spawnProcess || spawn;
   const safeTitle = cleanText(title, 100) || "云效缺陷提醒";
   const safeBody = cleanText(body, 500) || "有新的缺陷需要处理";
+  const safeTag = cleanText(options.tag, 64) || `dyx-${Date.now()}`;
   const script = String.raw`
 $ErrorActionPreference = 'Stop'
 $title = [Environment]::GetEnvironmentVariable('DYX_NOTIFICATION_TITLE')
 $body = [Environment]::GetEnvironmentVariable('DYX_NOTIFICATION_BODY')
+$tag = [Environment]::GetEnvironmentVariable('DYX_NOTIFICATION_TAG')
+$logPath = [Environment]::GetEnvironmentVariable('DYX_NOTIFICATION_LOG')
 $shown = $false
 try {
-  $app = Get-StartApps | Where-Object { $_.Name -match 'DeepSeek|Harness' } | Select-Object -First 1
+  $apps = Get-StartApps
+  $app = $apps | Where-Object { $_.AppID -eq 'io.github.hairyf.deepseek-harness-desktop' } | Select-Object -First 1
+  if (-not $app) { $app = $apps | Where-Object { $_.Name -match 'DeepSeek|Harness' } | Select-Object -First 1 }
   if ($app -and $app.AppID) {
     [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
     [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null
     $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
-    $xml.LoadXml('<toast><visual><binding template="ToastGeneric"><text></text><text></text></binding></visual></toast>')
+    $xml.LoadXml('<toast scenario="urgent" duration="long"><visual><binding template="ToastGeneric"><text></text><text></text></binding></visual></toast>')
     $texts = $xml.GetElementsByTagName('text')
     $null = $texts.Item(0).AppendChild($xml.CreateTextNode($title))
     $null = $texts.Item(1).AppendChild($xml.CreateTextNode($body))
     $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+    $toast.Tag = $tag
     [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier([string]$app.AppID).Show($toast)
     $shown = $true
   }
-} catch {}
-if (-not $shown) {
+} catch {
+  if ($logPath) { ('toast: ' + $_.Exception.Message) | Add-Content -LiteralPath $logPath -Encoding UTF8 }
+}
+try {
   Add-Type -AssemblyName System.Windows.Forms
   Add-Type -AssemblyName System.Drawing
-  $notify = New-Object System.Windows.Forms.NotifyIcon
-  try {
-    $notify.Icon = [System.Drawing.SystemIcons]::Information
-    $notify.Text = '云效缺陷提醒'
-    $notify.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
-    $notify.BalloonTipTitle = $title
-    $notify.BalloonTipText = $body
-    $notify.Visible = $true
-    $notify.ShowBalloonTip(10000)
-    Start-Sleep -Seconds 10
-  } finally {
-    $notify.Dispose()
+  $form = New-Object System.Windows.Forms.Form
+  $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
+  $form.BackColor = [System.Drawing.Color]::FromArgb(30, 35, 44)
+  $form.ClientSize = New-Object System.Drawing.Size(390, 142)
+  $form.ShowInTaskbar = $false
+  $form.TopMost = $true
+  $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+  $area = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+  $form.Location = New-Object System.Drawing.Point(($area.Right - $form.Width - 18), ($area.Bottom - $form.Height - 18))
+
+  $accent = New-Object System.Windows.Forms.Panel
+  $accent.BackColor = [System.Drawing.Color]::FromArgb(76, 130, 255)
+  $accent.Location = New-Object System.Drawing.Point(0, 0)
+  $accent.Size = New-Object System.Drawing.Size(5, 142)
+  $form.Controls.Add($accent)
+
+  $titleLabel = New-Object System.Windows.Forms.Label
+  $titleLabel.Text = $title
+  $titleLabel.ForeColor = [System.Drawing.Color]::White
+  $titleLabel.Font = New-Object System.Drawing.Font('Microsoft YaHei UI', 11, [System.Drawing.FontStyle]::Bold)
+  $titleLabel.Location = New-Object System.Drawing.Point(22, 18)
+  $titleLabel.AutoSize = $true
+  $form.Controls.Add($titleLabel)
+
+  $bodyLabel = New-Object System.Windows.Forms.Label
+  $bodyLabel.Text = $body
+  $bodyLabel.ForeColor = [System.Drawing.Color]::FromArgb(205, 211, 222)
+  $bodyLabel.Font = New-Object System.Drawing.Font('Microsoft YaHei UI', 9)
+  $bodyLabel.Location = New-Object System.Drawing.Point(22, 52)
+  $bodyLabel.Size = New-Object System.Drawing.Size(345, 38)
+  $form.Controls.Add($bodyLabel)
+
+  $openButton = New-Object System.Windows.Forms.Button
+  $openButton.Text = '打开 Harness'
+  $openButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+  $openButton.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(75, 88, 110)
+  $openButton.ForeColor = [System.Drawing.Color]::White
+  $openButton.BackColor = [System.Drawing.Color]::FromArgb(43, 51, 65)
+  $openButton.Font = New-Object System.Drawing.Font('Microsoft YaHei UI', 9)
+  $openButton.Location = New-Object System.Drawing.Point(253, 99)
+  $openButton.Size = New-Object System.Drawing.Size(114, 30)
+  $openButton.Add_Click({
+    try { $null = (New-Object -ComObject WScript.Shell).AppActivate('Deepseek Harness Desktop') } catch {}
+    $form.Close()
+  })
+  $form.Controls.Add($openButton)
+
+  $closeButton = New-Object System.Windows.Forms.Button
+  $closeButton.Text = [char]0x00D7
+  $closeButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+  $closeButton.FlatAppearance.BorderSize = 0
+  $closeButton.ForeColor = [System.Drawing.Color]::FromArgb(170, 180, 195)
+  $closeButton.BackColor = $form.BackColor
+  $closeButton.Location = New-Object System.Drawing.Point(350, 10)
+  $closeButton.Size = New-Object System.Drawing.Size(28, 28)
+  $closeButton.Add_Click({ $form.Close() })
+  $form.Controls.Add($closeButton)
+
+  $form.Show()
+  $expires = [DateTime]::UtcNow.AddSeconds(15)
+  while ($form.Visible -and [DateTime]::UtcNow -lt $expires) {
+    [System.Windows.Forms.Application]::DoEvents()
+    Start-Sleep -Milliseconds 50
   }
+  if ($form.Visible) { $form.Close() }
+  $form.Dispose()
+} catch {
+  if ($logPath) { ('window: ' + $_.Exception.Message) | Add-Content -LiteralPath $logPath -Encoding UTF8 }
+  Add-Type -AssemblyName System.Windows.Forms
+  [System.Windows.Forms.MessageBox]::Show($body, $title, 'OK', 'Information') > $null
 }`;
   const encoded = Buffer.from(script, "utf16le").toString("base64");
   const child = spawnProcess("powershell.exe", [
@@ -945,14 +1010,16 @@ if (-not $shown) {
     env: {
       ...process.env,
       DYX_NOTIFICATION_TITLE: safeTitle,
-      DYX_NOTIFICATION_BODY: safeBody
+      DYX_NOTIFICATION_BODY: safeBody,
+      DYX_NOTIFICATION_TAG: safeTag,
+      DYX_NOTIFICATION_LOG: path.resolve(process.cwd(), "dsh-yunxiao-notification.log")
     }
   });
   return new Promise((resolve, reject) => {
     child.once("error", (error) => reject(new YunxiaoError(`Windows 原生通知启动失败：${error.message}`, 500)));
     child.once("spawn", () => {
       if (typeof child.unref === "function") child.unref();
-      resolve({ supported: true, accepted: true, channel: "windows-native" });
+      resolve({ supported: true, accepted: true, channel: "windows-desktop-window" });
     });
   });
 }
@@ -1003,7 +1070,7 @@ function createRpc(store, api, systemNotifier = showWindowsNotification) {
       case "state.get":
         return store.publicState();
       case "system.notification.show":
-        return systemNotifier(args.title, args.body);
+        return systemNotifier(args.title, args.body, { tag: args.tag });
       case "system.notification.settings.open":
         return openWindowsNotificationSettings();
       case "account.save":

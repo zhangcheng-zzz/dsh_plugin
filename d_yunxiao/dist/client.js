@@ -248,13 +248,13 @@ function createDefectNotifier(options) {
     timer = setTimeout(runPoll, snapshot.settings.intervalMinutes * NOTIFICATION_MINUTE_MS);
   }
 
-  function showWebNotification(count, items) {
+  function showWebNotification(count, items, notificationTag) {
     if (!("Notification" in window)) return "Web 通知不支持";
     if (window.Notification.permission !== "granted") return "Web 通知未授权";
     try {
       var notification = new window.Notification("云效缺陷提醒", {
         body: "新增 " + count + " 个缺陷需修复",
-        tag: "dsh-yunxiao-defects-" + snapshot.accountId + "-" + snapshot.projectId + "-" + Date.now(),
+        tag: notificationTag || "dsh-yunxiao-defects-" + snapshot.accountId + "-" + snapshot.projectId + "-" + Date.now(),
         renotify: true,
         requireInteraction: true
       });
@@ -274,14 +274,28 @@ function createDefectNotifier(options) {
   function showSystemNotification(count, items) {
     snapshot.lastWindowsStatus = "正在提交";
     emit();
+    var tag = "dyx-defect-" + Date.now();
     if (window.__dsh_native_notification_bridge__) {
-      snapshot.lastWindowsStatus = showWebNotification(count, items);
-      emit();
-      return Promise.resolve(copySnapshot());
+      var bridgeStatus = showWebNotification(count, items, tag);
+      return rpc("system.notification.show", {
+        title: "云效缺陷提醒",
+        body: "新增 " + count + " 个缺陷需修复",
+        tag: tag
+      }).then(function (result) {
+        snapshot.lastWindowsStatus = result && result.accepted
+          ? "Harness 桥已提交；Windows 桌面提醒已启动"
+          : bridgeStatus + "；Windows 桌面提醒不可用";
+      }).catch(function (error) {
+        snapshot.lastWindowsStatus = bridgeStatus + "；Windows 桌面提醒失败（" + (error instanceof Error ? error.message : String(error)) + "）";
+      }).then(function () {
+        emit();
+        return copySnapshot();
+      });
     }
     return rpc("system.notification.show", {
       title: "云效缺陷提醒",
-      body: "新增 " + count + " 个缺陷需修复"
+      body: "新增 " + count + " 个缺陷需修复",
+      tag: tag
     }).then(function (result) {
       snapshot.lastWindowsStatus = result && result.accepted
         ? "已提交给 Windows 原生通知"
@@ -739,7 +753,7 @@ function createWorkspace(onRequestClose, notifier) {
       status.append(node("div", "dyx-muted", "最近结果：两次查询合并 " + noticeState.lastResultCount + " 条，本轮新增 " + noticeState.lastAddedCount + " 条"));
       var permissionText = window.__dsh_native_notification_bridge__ ? "Harness 桥已授权（没有网页授权弹窗）" : !("Notification" in window) ? "不支持" : window.Notification.permission === "granted" ? "已授权" : window.Notification.permission === "denied" ? "已拒绝" : "待授权";
       status.append(node("div", "dyx-muted", "通知权限：" + permissionText));
-      status.append(node("div", "dyx-muted", "通知通道：" + (window.__dsh_native_notification_bridge__ ? "Harness 原生通知桥" : "Windows 后端 / Web 兜底")));
+      status.append(node("div", "dyx-muted", "通知通道：" + (window.__dsh_native_notification_bridge__ ? "Harness 原生桥 + Windows 桌面提醒" : "Windows 后端 / Web 兜底")));
       status.append(node("div", "dyx-muted", "Windows 最近调用：" + (noticeState.lastWindowsStatus || "尚未触发")));
       if (window.__dsh_native_notification_bridge__) status.append(node("div", "dyx-muted", "提示：宿主授权只代表允许调用；通知横幅、勿扰模式仍由 Windows 控制。"));
       if (noticeState.lastError) status.append(node("div", "dyx-muted", "最近检查失败：" + noticeState.lastError));

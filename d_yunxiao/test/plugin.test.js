@@ -58,6 +58,8 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(source, /Harness 桥已授权（没有网页授权弹窗）/);
   assert.match(source, /system\.notification\.settings\.open/);
   assert.match(source, /打开 Windows 通知设置/);
+  assert.match(source, /Harness 原生桥 \+ Windows 桌面提醒/);
+  assert.match(source, /Windows 桌面提醒已启动/);
   assert.match(source, /Date\.now\(\)/);
   assert.match(source, /首次查询只建立基线/);
   assert.match(source, /新增 " \+ count \+ " 个缺陷需修复/);
@@ -135,14 +137,19 @@ test("Windows notification helper starts a hidden native notifier with safe text
     }
   });
   const result = await promise;
-  assert.deepEqual(result, { supported: true, accepted: true, channel: "windows-native" });
+  assert.deepEqual(result, { supported: true, accepted: true, channel: "windows-desktop-window" });
   assert.equal(invocation.command, "powershell.exe");
   assert.equal(invocation.options.windowsHide, true);
   assert.equal(invocation.options.detached, true);
   assert.equal(invocation.options.env.DYX_NOTIFICATION_BODY, "新增 1 个缺陷需修复");
+  assert.match(invocation.options.env.DYX_NOTIFICATION_TAG, /^dyx-/);
   const script = Buffer.from(invocation.args.at(-1), "base64").toString("utf16le");
   assert.match(script, /ToastNotificationManager/);
-  assert.match(script, /System\.Windows\.Forms\.NotifyIcon/);
+  assert.match(script, /scenario="urgent"/);
+  assert.match(script, /io\.github\.hairyf\.deepseek-harness-desktop/);
+  assert.match(script, /System\.Windows\.Forms\.Form/);
+  assert.match(script, /System\.Windows\.Forms\.MessageBox/);
+  assert.match(script, /打开 Harness/);
   assert.equal(unrefCalled, true);
   assert.deepEqual(await showWindowsNotification("title", "body", { platform: "linux" }), {
     supported: false,
