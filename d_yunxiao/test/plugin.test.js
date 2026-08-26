@@ -17,6 +17,7 @@ import {
   mapDefect,
   mapPipelineRun,
   normalizeDefectNotification,
+  openWindowsNotificationSettings,
   showWindowsNotification
 } from "../dist/index.js";
 
@@ -54,7 +55,9 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(source, /已提交给 Windows 原生通知/);
   assert.match(source, /__dsh_native_notification_bridge__/);
   assert.match(source, /requireInteraction: true/);
-  assert.match(source, /宿主已授权（无需弹窗）/);
+  assert.match(source, /Harness 桥已授权（没有网页授权弹窗）/);
+  assert.match(source, /system\.notification\.settings\.open/);
+  assert.match(source, /打开 Windows 通知设置/);
   assert.match(source, /Date\.now\(\)/);
   assert.match(source, /首次查询只建立基线/);
   assert.match(source, /新增 " \+ count \+ " 个缺陷需修复/);
@@ -96,6 +99,26 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(detailStatus, /select\.addEventListener\("change"/);
   assert.match(detailStatus, /loadDefects\(\)/);
   assert.doesNotMatch(detailStatus, /保存状态/);
+});
+
+test("Windows notification settings helper opens the native settings page", async () => {
+  let invocation;
+  let unrefCalled = false;
+  const child = new EventEmitter();
+  child.unref = () => { unrefCalled = true; };
+  const resultPromise = openWindowsNotificationSettings({
+    platform: "win32",
+    spawnProcess(command, args, options) {
+      invocation = { command, args, options };
+      queueMicrotask(() => child.emit("spawn"));
+      return child;
+    }
+  });
+  assert.deepEqual(await resultPromise, { supported: true, accepted: true });
+  assert.equal(invocation.command, "explorer.exe");
+  assert.deepEqual(invocation.args, ["ms-settings:notifications"]);
+  assert.equal(invocation.options.windowsHide, true);
+  assert.equal(unrefCalled, true);
 });
 
 test("Windows notification helper starts a hidden native notifier with safe text transport", async () => {

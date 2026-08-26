@@ -957,6 +957,24 @@ if (-not $shown) {
   });
 }
 
+async function openWindowsNotificationSettings(options = {}) {
+  const platform = options.platform || process.platform;
+  if (platform !== "win32") return { supported: false, accepted: false };
+  const spawnProcess = options.spawnProcess || spawn;
+  const child = spawnProcess("explorer.exe", ["ms-settings:notifications"], {
+    detached: true,
+    stdio: "ignore",
+    windowsHide: true
+  });
+  return new Promise((resolve, reject) => {
+    child.once("error", (error) => reject(new YunxiaoError(`Windows 通知设置打开失败：${error.message}`, 500)));
+    child.once("spawn", () => {
+      if (typeof child.unref === "function") child.unref();
+      resolve({ supported: true, accepted: true });
+    });
+  });
+}
+
 function createRpc(store, api, systemNotifier = showWindowsNotification) {
   async function accountAndProject(args) {
     const account = await store.getAccount(args.accountId);
@@ -986,6 +1004,8 @@ function createRpc(store, api, systemNotifier = showWindowsNotification) {
         return store.publicState();
       case "system.notification.show":
         return systemNotifier(args.title, args.body);
+      case "system.notification.settings.open":
+        return openWindowsNotificationSettings();
       case "account.save":
         return store.saveAccount(args);
       case "account.select":
@@ -1225,6 +1245,7 @@ export {
   mapPipelineRun,
   isNotifiableDefectStatus,
   normalizeDefectNotification,
+  openWindowsNotificationSettings,
   showWindowsNotification,
   name
 };

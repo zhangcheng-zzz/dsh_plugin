@@ -264,7 +264,7 @@ function createDefectNotifier(options) {
         notification.close();
       };
       return window.__dsh_native_notification_bridge__
-        ? "已请求 Harness 原生通知（系统无展示回执）"
+        ? "已提交到 Harness；Windows 是否显示横幅由系统设置决定"
         : "已提交给 Web 通知";
     } catch (error) {
       return "Web 通知调用失败";
@@ -720,8 +720,16 @@ function createWorkspace(onRequestClose, notifier) {
         toast("检查完成：当前命中 " + latest.lastResultCount + " 条，本轮新增 " + latest.lastAddedCount + " 条");
       }).catch(function (error) { toast(error.message, true); }).finally(function () { checkNow.disabled = false; });
     });
+    var openNotificationSettings = button("打开 Windows 通知设置", "", function () {
+      openNotificationSettings.disabled = true;
+      rpc("system.notification.settings.open", {}).then(function (result) {
+        if (!result || !result.accepted) throw new Error("当前系统不支持打开 Windows 通知设置");
+        toast("已打开 Windows 通知设置，请检查 Harness 的通知横幅及勿扰模式");
+      }).catch(function (error) { toast(error.message, true); })
+        .finally(function () { openNotificationSettings.disabled = false; });
+    });
     checkNow.disabled = !settings.enabled;
-    notifyActions.append(testNotice, testWindowsNotice, checkNow);
+    notifyActions.append(testNotice, testWindowsNotice, openNotificationSettings, checkNow);
     card.append(notifyActions);
     var status = node("div", "dyx-notify-status");
     if (settings.enabled) {
@@ -729,10 +737,11 @@ function createWorkspace(onRequestClose, notifier) {
       if (noticeState.unreadCount) status.append(document.createTextNode(" · 本次运行新增 " + noticeState.unreadCount + " 条"));
       if (noticeState.lastCheckedAt) status.append(document.createTextNode(" · 最近检查 " + formatDate(noticeState.lastCheckedAt)));
       status.append(node("div", "dyx-muted", "最近结果：两次查询合并 " + noticeState.lastResultCount + " 条，本轮新增 " + noticeState.lastAddedCount + " 条"));
-      var permissionText = window.__dsh_native_notification_bridge__ ? "宿主已授权（无需弹窗）" : !("Notification" in window) ? "不支持" : window.Notification.permission === "granted" ? "已授权" : window.Notification.permission === "denied" ? "已拒绝" : "待授权";
+      var permissionText = window.__dsh_native_notification_bridge__ ? "Harness 桥已授权（没有网页授权弹窗）" : !("Notification" in window) ? "不支持" : window.Notification.permission === "granted" ? "已授权" : window.Notification.permission === "denied" ? "已拒绝" : "待授权";
       status.append(node("div", "dyx-muted", "通知权限：" + permissionText));
       status.append(node("div", "dyx-muted", "通知通道：" + (window.__dsh_native_notification_bridge__ ? "Harness 原生通知桥" : "Windows 后端 / Web 兜底")));
       status.append(node("div", "dyx-muted", "Windows 最近调用：" + (noticeState.lastWindowsStatus || "尚未触发")));
+      if (window.__dsh_native_notification_bridge__) status.append(node("div", "dyx-muted", "提示：宿主授权只代表允许调用；通知横幅、勿扰模式仍由 Windows 控制。"));
       if (noticeState.lastError) status.append(node("div", "dyx-muted", "最近检查失败：" + noticeState.lastError));
     } else {
       status.textContent = "开启后即刻建立当前缺陷基线，随后仅提醒本次运行中新出现的 ID。";
