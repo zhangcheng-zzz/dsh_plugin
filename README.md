@@ -35,7 +35,7 @@ dsh --profile web --dump-config
 
 ## dsh-yunxiao
 
-`dsh-yunxiao` 使用单个 JSON 文本文件保存账号、当前项目与有限缓存，不依赖数据库，也不接收 Webhook 或消息回调。Web 工作台提供缺陷和流水线常用操作，Host 同时注册两个只读模型工具。
+`dsh-yunxiao` 使用单个 JSON 文本文件保存账号、当前项目、缺陷通知设置与有限缓存，不依赖数据库，也不接收 Webhook 或消息回调。Web 工作台提供缺陷、Windows 新缺陷提醒和流水线常用操作，Host 同时注册两个只读模型工具。
 
 安装：
 

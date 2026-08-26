@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -12,8 +13,11 @@ import {
   createRpc,
   extractStatuses,
   inlineFileIds,
+  isNotifiableDefectStatus,
   mapDefect,
-  mapPipelineRun
+  mapPipelineRun,
+  normalizeDefectNotification,
+  showWindowsNotification
 } from "../dist/index.js";
 
 test("client uses the native sidebar trigger and a stable reserved right panel", async () => {
@@ -35,6 +39,39 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(source, /event\.ctrlKey \|\| event\.metaKey/);
   assert.match(source, /assignedToId/);
   assert.match(source, /dyx-inline-status/);
+  assert.match(source, /dyx-status-pending/);
+  assert.match(source, /dyx-status-processing/);
+  assert.match(source, /dyx-status-reopened/);
+  assert.match(source, /function applyDefectStatusTone/);
+  assert.match(source, /function applyDefectRecordTone/);
+  assert.match(source, /dyx-record-status-pending/);
+  assert.match(source, /dyx-record-status-processing/);
+  assert.match(source, /dyx-record-status-reopened/);
+  assert.match(source, /function createDefectNotifier/);
+  assert.match(source, /defect\.notification\.scan/);
+  assert.match(source, /new window\.Notification/);
+  assert.match(source, /system\.notification\.show/);
+  assert.match(source, /已提交给 Windows 原生通知/);
+  assert.match(source, /__dsh_native_notification_bridge__/);
+  assert.match(source, /requireInteraction: true/);
+  assert.match(source, /宿主已授权（无需弹窗）/);
+  assert.match(source, /Date\.now\(\)/);
+  assert.match(source, /首次查询只建立基线/);
+  assert.match(source, /新增 " \+ count \+ " 个缺陷需修复/);
+  assert.match(source, /dyx-sidebar-trigger-count/);
+  assert.match(source, /dyx-global-notice/);
+  assert.match(source, /var addedIds = ids\.filter/);
+  assert.match(source, /seenByScope\.set\(scope, new Set\(ids\)\)/);
+  assert.match(source, /测试内部通知/);
+  assert.match(source, /测试 Windows 通知/);
+  assert.match(source, /立即检查/);
+  assert.match(source, /最近结果：两次查询合并/);
+  assert.match(source, /Windows 最近调用/);
+  assert.match(source, /lastWindowsStatus/);
+  assert.match(source, /options\.onOpen\(items \|\| \[\]\)/);
+  assert.match(source, /function openNotifiedDefects/);
+  assert.match(source, /openDefect\(values\[0\]\)/);
+  assert.match(source, /activeWorkspace\.openNotifiedDefects/);
   const runForm = source.slice(source.indexOf("function openRunPipeline"), source.indexOf("function openPipelineRun"));
   assert.match(runForm, /pipeline\.branches/);
   assert.match(runForm, /运行分支/);
@@ -59,6 +96,36 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(detailStatus, /select\.addEventListener\("change"/);
   assert.match(detailStatus, /loadDefects\(\)/);
   assert.doesNotMatch(detailStatus, /保存状态/);
+});
+
+test("Windows notification helper starts a hidden native notifier with safe text transport", async () => {
+  let invocation;
+  let unrefCalled = false;
+  const child = new EventEmitter();
+  child.unref = () => { unrefCalled = true; };
+  const promise = showWindowsNotification("云效缺陷提醒", "新增 1 个缺陷需修复", {
+    platform: "win32",
+    spawnProcess(command, args, options) {
+      invocation = { command, args, options };
+      queueMicrotask(() => child.emit("spawn"));
+      return child;
+    }
+  });
+  const result = await promise;
+  assert.deepEqual(result, { supported: true, accepted: true, channel: "windows-native" });
+  assert.equal(invocation.command, "powershell.exe");
+  assert.equal(invocation.options.windowsHide, true);
+  assert.equal(invocation.options.detached, true);
+  assert.equal(invocation.options.env.DYX_NOTIFICATION_BODY, "新增 1 个缺陷需修复");
+  const script = Buffer.from(invocation.args.at(-1), "base64").toString("utf16le");
+  assert.match(script, /ToastNotificationManager/);
+  assert.match(script, /System\.Windows\.Forms\.NotifyIcon/);
+  assert.equal(unrefCalled, true);
+  assert.deepEqual(await showWindowsNotification("title", "body", { platform: "linux" }), {
+    supported: false,
+    accepted: false,
+    channel: "unsupported"
+  });
 });
 
 test("plugin apply registers two tools and the Web RPC route", async (t) => {
@@ -105,16 +172,31 @@ test("JSON store persists accounts and project selection without exposing token"
     remark: "测试"
   });
   await store.selectProject(account.id, { id: "project-1", name: "演示项目" });
+  await store.saveDefectNotification(account.id, "project-1", {
+    enabled: true,
+    assignedToId: "u1",
+    assignedToName: "张三",
+    intervalMinutes: 10,
+    targetStatuses: [{ id: "pending", name: "待确认" }, { id: "reopened", name: "再次打开" }]
+  });
 
   const publicState = await store.publicState();
   assert.equal(publicState.accounts[0].hasToken, true);
   assert.equal(publicState.accounts[0].token, undefined);
   assert.deepEqual(publicState.accounts[0].selectedProject, { id: "project-1", name: "演示项目" });
+  assert.deepEqual(publicState.accounts[0].defectNotification, {
+    enabled: true,
+    assignedToId: "u1",
+    assignedToName: "张三",
+    intervalMinutes: 10,
+    targetStatuses: [{ id: "pending", name: "待确认" }, { id: "reopened", name: "再次打开" }]
+  });
 
   const text = await readFile(file, "utf8");
   const persisted = JSON.parse(text);
   assert.equal(persisted.accounts[0].token, "secret-token");
   assert.equal(persisted.selectedAccountId, account.id);
+  assert.equal(persisted.accounts[0].projectSettings["project-1"].defectNotification.intervalMinutes, 10);
 });
 
 test("RPC uses current account/project and falls back to persisted list cache", async (t) => {
@@ -126,11 +208,13 @@ test("RPC uses current account/project and falls back to persisted list cache", 
 
   let fail = false;
   const createdComments = [];
+  const defectQueries = [];
   const api = {
     listProjects: async () => [{ id: "p1", name: "项目一" }],
-    listDefects: async (_account, projectId) => {
+    listDefects: async (_account, projectId, query = {}) => {
+      defectQueries.push(query);
       if (fail) throw new Error("offline");
-      return { items: [{ id: "bug-1", projectId }], total: 1, page: 1, pageSize: 20 };
+      return { items: [{ id: "bug-1", projectId, statusName: "待确认", assignedToId: "u1", assignedToName: "张三" }], total: 1, page: 1, pageSize: 20 };
     },
     listPipelines: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
     getDefect: async () => ({}),
@@ -147,11 +231,38 @@ test("RPC uses current account/project and falls back to persisted list cache", 
     getPipelineJobLog: async () => ({}),
     createPipelineRun: async () => ({})
   };
-  const rpc = createRpc(store, api);
+  const nativeNotifications = [];
+  const rpc = createRpc(store, api, async (title, body) => {
+    nativeNotifications.push({ title, body });
+    return { supported: true, accepted: true, channel: "windows-native" };
+  });
+
+  const nativeNotification = await rpc("system.notification.show", { title: "云效缺陷提醒", body: "测试通知" });
+  assert.equal(nativeNotification.accepted, true);
+  assert.deepEqual(nativeNotifications, [{ title: "云效缺陷提醒", body: "测试通知" }]);
 
   const fresh = await rpc("defects.list", {});
   assert.equal(fresh.items[0].projectId, "p1");
   assert.equal(fresh.stale, false);
+
+  const notificationSettings = await rpc("defect.notification.settings.update", {
+    enabled: true,
+    assignedToId: "u1",
+    assignedToName: "张三",
+    intervalMinutes: 15,
+    targetStatuses: [{ id: "pending", name: "待确认" }, { id: "reopened", name: "再次打开" }]
+  });
+  assert.equal(notificationSettings.enabled, true);
+  assert.equal(notificationSettings.intervalMinutes, 15);
+  const scan = await rpc("defect.notification.scan", { assignedToId: "u1" });
+  assert.deepEqual(scan.ids, ["bug-1"]);
+  assert.deepEqual(scan.assignees, [{ id: "u1", name: "张三" }]);
+  assert.deepEqual(scan.statuses, [{ id: "pending", name: "待确认" }, { id: "reopened", name: "再次打开" }]);
+  assert.equal(scan.page, 1);
+  assert.equal(scan.pageSize, 100);
+  assert.equal(scan.queryCount, 2);
+  assert.deepEqual(defectQueries.slice(-2).map((item) => item.statusId), ["pending", "reopened"]);
+  assert.ok(defectQueries.slice(-2).every((item) => item.orderBy === "gmtModified" && item.pageSize === 100 && item.assignedToId === "u1"));
 
   const comment = await rpc("defect.comment.create", { defectId: "bug-1", content: "  请验证修复。  " });
   assert.equal(comment.id, "comment-1");
@@ -190,6 +301,20 @@ test("defect and pipeline normalizers preserve useful fields and mask secrets", 
   assert.equal(run.pipelineRunId, "9");
   assert.equal(run.globalParams[0].value, "******");
   assert.equal(run.globalParams[1].value, "test");
+});
+
+test("notification settings and target statuses are normalized", () => {
+  assert.deepEqual(normalizeDefectNotification({ enabled: 1, intervalMinutes: 0 }), {
+    enabled: true,
+    assignedToId: "",
+    assignedToName: "",
+    intervalMinutes: 1,
+    targetStatuses: []
+  });
+  assert.equal(isNotifiableDefectStatus("待确认"), true);
+  assert.equal(isNotifiableDefectStatus("再次打开"), true);
+  assert.equal(isNotifiableDefectStatus("REOPENED"), true);
+  assert.equal(isNotifiableDefectStatus("处理中"), false);
 });
 
 test("status extraction accepts nested workflow response shapes", () => {
@@ -242,6 +367,39 @@ test("API client sends the official defect search contract", async (t) => {
     ["status", "doing"],
     ["assignedTo", "u1"]
   ]);
+
+  await client.listDefects(
+    { organizationId: "org-1", token: "token" },
+    "project-1",
+    { page: 1, pageSize: 100, orderBy: "gmtModified" }
+  );
+  assert.equal(JSON.parse(calls[1].options.body).orderBy, "gmtModified");
+  assert.equal(JSON.parse(calls[1].options.body).perPage, 100);
+});
+
+test("notification status IDs are resolved before filtered polling", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  t.after(() => { globalThis.fetch = previousFetch; });
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(JSON.stringify([
+      { id: "bug-1", status: { id: "pending-id", displayName: "待确认" } },
+      { id: "bug-2", status: { id: "reopened-id", displayName: "再次打开" } }
+    ]), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  const client = createApiClient({ apiBaseUrl: "https://openapi-rdc.aliyuncs.com", timeoutMs: 5000 });
+  const statuses = await client.resolveNotificationStatuses(
+    { organizationId: "org-1", token: "token" },
+    "project-1"
+  );
+  assert.deepEqual(statuses, [
+    { id: "pending-id", name: "待确认" },
+    { id: "reopened-id", name: "再次打开" }
+  ]);
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.orderBy, "gmtModified");
+  assert.equal(body.perPage, 100);
 });
 
 test("API client reads workflow statuses without loading comments and updates list status", async (t) => {

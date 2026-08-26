@@ -12,10 +12,12 @@ var PANEL_WIDTH_STORAGE_KEY = "dsh-yunxiao:panel-width";
 var DEFAULT_PANEL_WIDTH = 480;
 var MIN_PANEL_WIDTH = 380;
 var MAX_PANEL_WIDTH = 860;
+var DEFAULT_NOTIFICATION_INTERVAL = 5;
+var NOTIFICATION_MINUTE_MS = Math.max(100, Number(window.__DYX_NOTIFICATION_MINUTE_MS__) || 60 * 1000);
 
 var CSS = [
-  ":root{--dyx-bg:#f6f7fb;--dyx-panel:#fff;--dyx-panel2:#f8fafc;--dyx-text:#172033;--dyx-muted:#64748b;--dyx-line:#e2e8f0;--dyx-brand:#2563eb;--dyx-brand2:#0f766e;--dyx-danger:#dc2626;--dyx-shadow:0 18px 60px rgba(15,23,42,.22)}",
-  "@media(prefers-color-scheme:dark){:root{--dyx-bg:#0d1117;--dyx-panel:#141b24;--dyx-panel2:#101720;--dyx-text:#e6edf3;--dyx-muted:#8b9bb0;--dyx-line:#2b3543;--dyx-brand:#65a3ff;--dyx-brand2:#39c5ad;--dyx-danger:#ff7b72;--dyx-shadow:0 22px 70px rgba(0,0,0,.5)}}",
+  ":root{--dyx-bg:#f6f7fb;--dyx-panel:#fff;--dyx-panel2:#f8fafc;--dyx-text:#172033;--dyx-muted:#64748b;--dyx-line:#e2e8f0;--dyx-brand:#2563eb;--dyx-brand2:#0f766e;--dyx-danger:#dc2626;--dyx-status-pending:#8a5a00;--dyx-status-pending-bg:rgba(217,151,27,.09);--dyx-status-pending-line:rgba(180,120,10,.34);--dyx-status-processing:#2457a6;--dyx-status-processing-bg:rgba(37,99,235,.08);--dyx-status-processing-line:rgba(37,99,235,.3);--dyx-status-reopened:#963b63;--dyx-status-reopened-bg:rgba(190,69,118,.08);--dyx-status-reopened-line:rgba(170,55,105,.3);--dyx-shadow:0 18px 60px rgba(15,23,42,.22)}",
+  "@media(prefers-color-scheme:dark){:root{--dyx-bg:#0d1117;--dyx-panel:#141b24;--dyx-panel2:#101720;--dyx-text:#e6edf3;--dyx-muted:#8b9bb0;--dyx-line:#2b3543;--dyx-brand:#65a3ff;--dyx-brand2:#39c5ad;--dyx-danger:#ff7b72;--dyx-status-pending:#e7b75d;--dyx-status-pending-bg:rgba(245,158,11,.1);--dyx-status-pending-line:rgba(245,180,65,.3);--dyx-status-processing:#8ab7ff;--dyx-status-processing-bg:rgba(96,165,250,.1);--dyx-status-processing-line:rgba(96,165,250,.3);--dyx-status-reopened:#ef9abd;--dyx-status-reopened-bg:rgba(236,72,153,.1);--dyx-status-reopened-line:rgba(244,114,182,.3);--dyx-shadow:0 22px 70px rgba(0,0,0,.5)}}",
   ".dyx-root,.dyx-root *{box-sizing:border-box}",
   ".dyx-slot-host{width:100%;height:100%;min-height:0}",
   ".dyx-right-panel{position:absolute;inset:0 0 0 auto;width:var(--dyx-workspace-width,480px);min-width:0;overflow:hidden;pointer-events:auto;background:var(--dyx-bg);box-shadow:-12px 0 32px rgba(15,23,42,.08)}",
@@ -23,7 +25,7 @@ var CSS = [
   ".dyx-resize-handle{position:absolute;z-index:50;inset:0 auto 0 0;width:10px;cursor:col-resize;touch-action:none;outline:0}.dyx-resize-handle::after{content:'';position:absolute;inset:0 auto 0 0;width:3px;background:transparent;transition:background .15s}.dyx-resize-handle:hover::after,.dyx-resize-handle:focus-visible::after,.dyx-resize-handle.active::after{background:var(--dyx-brand)}.dyx-resizing,.dyx-resizing *{cursor:col-resize!important;user-select:none!important}",
   ".dyx-preview-host{position:fixed;inset:12px 12px 12px auto;width:min(520px,calc(100vw - 24px));z-index:2147482500;overflow:hidden;border-radius:16px;box-shadow:var(--dyx-shadow)}",
   ".dyx-root{position:relative;width:100%;height:100%;min-height:0;container-type:inline-size;font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;color:var(--dyx-text);pointer-events:auto}",
-  ".dyx-sidebar-trigger{width:100%;min-height:36px;padding:8px 10px;display:flex;align-items:center;justify-content:center;gap:9px;border:0;border-radius:9px;color:inherit;background:transparent;cursor:pointer;font:inherit}.dyx-sidebar-trigger:hover{color:#2563eb;background:rgba(37,99,235,.1)}.dyx-sidebar-trigger[data-wide='true']{justify-content:flex-start}.dyx-sidebar-trigger-mark{width:22px;height:22px;display:grid;place-items:center;border-radius:7px;color:#fff;background:linear-gradient(135deg,#2563eb,#0f766e);font-size:11px;font-weight:800}",
+  ".dyx-sidebar-trigger{position:relative;width:100%;min-height:36px;padding:8px 10px;display:flex;align-items:center;justify-content:center;gap:9px;border:0;border-radius:9px;color:inherit;background:transparent;cursor:pointer;font:inherit}.dyx-sidebar-trigger:hover{color:#2563eb;background:rgba(37,99,235,.1)}.dyx-sidebar-trigger[data-wide='true']{justify-content:flex-start}.dyx-sidebar-trigger-mark{width:22px;height:22px;display:grid;place-items:center;border-radius:7px;color:#fff;background:linear-gradient(135deg,#2563eb,#0f766e);font-size:11px;font-weight:800}.dyx-sidebar-trigger-count{min-width:20px;height:20px;padding:0 6px;display:grid;place-items:center;border:2px solid var(--dyx-panel);border-radius:999px;color:#fff;background:#dc2626;font-size:10px;font-weight:800}.dyx-sidebar-trigger:not([data-wide='true']) .dyx-sidebar-trigger-count{position:absolute;right:2px;top:1px}",
   ".dyx-shell{position:absolute;inset:0;display:grid;grid-template-rows:62px minmax(0,1fr);overflow:hidden;border-left:1px solid var(--dyx-line);background:var(--dyx-bg)}",
   ".dyx-hidden{display:none!important}",
   ".dyx-head{display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid var(--dyx-line);background:color-mix(in srgb,var(--dyx-panel) 92%,transparent)}",
@@ -44,6 +46,7 @@ var CSS = [
   ".dyx-btn{min-height:34px;padding:7px 12px;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-text);background:var(--dyx-panel);cursor:pointer;font:inherit}.dyx-btn:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-btn.primary{border-color:var(--dyx-brand);color:#fff;background:#2563eb}.dyx-btn.danger{color:var(--dyx-danger)}.dyx-btn:disabled{opacity:.55;cursor:not-allowed}",
   ".dyx-field{display:grid;gap:5px}.dyx-field label{color:var(--dyx-muted);font-size:12px}.dyx-input,.dyx-select,.dyx-textarea{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-text);background:var(--dyx-panel);outline:0;font:inherit}.dyx-input:focus,.dyx-select:focus,.dyx-textarea:focus{border-color:var(--dyx-brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--dyx-brand) 13%,transparent)}.dyx-textarea{min-height:84px;resize:vertical}.dyx-select[multiple]{min-height:112px;padding:6px}.dyx-select[multiple] option{padding:7px 8px;border-radius:6px}",
   ".dyx-project-row{display:grid;grid-template-columns:1fr;gap:9px}.dyx-current{margin-top:12px;padding:12px;border-radius:10px;color:var(--dyx-muted);background:var(--dyx-panel2)}.dyx-current strong{color:var(--dyx-text)}",
+  ".dyx-notify-copy{margin:-4px 0 13px;color:var(--dyx-muted);font-size:12px}.dyx-notify-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,.65fr);gap:10px}.dyx-notify-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid var(--dyx-line);border-radius:10px;background:var(--dyx-panel2);cursor:pointer}.dyx-notify-toggle input{width:18px;height:18px;accent-color:var(--dyx-brand)}.dyx-notify-actions{margin-top:10px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}.dyx-notify-status{margin-top:11px;padding:10px 12px;border-radius:9px;color:var(--dyx-muted);background:var(--dyx-panel2);font-size:12px}.dyx-notify-status strong{color:var(--dyx-text)}",
   ".dyx-tools{margin-bottom:13px;display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:end}",
   ".dyx-defect-filters{margin-bottom:13px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.dyx-filter-control{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:5px}.dyx-filter-clear{width:30px;min-height:38px;padding:0;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-muted);background:var(--dyx-panel);cursor:pointer;font-family:inherit;font-size:18px;line-height:1}.dyx-filter-clear:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-filter-clear[hidden]{visibility:hidden;display:block}",
   ".dyx-table-wrap{overflow:auto;border:1px solid var(--dyx-line);border-radius:11px}.dyx-table{width:100%;border-collapse:collapse;min-width:760px}.dyx-table th,.dyx-table td{padding:11px 12px;border-bottom:1px solid var(--dyx-line);text-align:left;vertical-align:middle}.dyx-table th{position:sticky;top:0;z-index:1;color:var(--dyx-muted);background:var(--dyx-panel2);font-size:12px;white-space:nowrap}.dyx-table tr:last-child td{border-bottom:0}.dyx-table tbody tr:hover{background:color-mix(in srgb,var(--dyx-brand) 5%,transparent)}",
@@ -59,11 +62,12 @@ var CSS = [
   ".dyx-comment-compose{margin-bottom:12px;padding:12px;border:1px solid var(--dyx-line);border-radius:11px;background:var(--dyx-panel2)}.dyx-comment-compose .dyx-textarea{min-height:92px;background:var(--dyx-panel)}.dyx-comment-compose-actions{margin-top:9px;display:flex;align-items:center;justify-content:space-between;gap:10px}.dyx-comment-compose-actions span{color:var(--dyx-muted);font-size:11px}.dyx-comments{display:grid;gap:10px}.dyx-comment{padding:12px;border:1px solid var(--dyx-line);border-radius:10px}.dyx-comment-head{display:flex;justify-content:space-between;margin-bottom:7px;color:var(--dyx-muted);font-size:12px}",
   ".dyx-status-row{display:flex;align-items:end;gap:8px}.dyx-status-row .dyx-field{min-width:180px}.dyx-note{padding:10px 12px;border-radius:9px;color:#a16207;background:rgba(245,158,11,.13)}",
   ".dyx-stage{margin:7px 0;padding:10px 12px;display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:10px;border:1px solid var(--dyx-line);border-radius:9px}.dyx-dot{width:9px;height:9px;border-radius:50%;background:#94a3b8}.dyx-dot.SUCCESS{background:#16a34a}.dyx-dot.RUNNING{background:#f59e0b}.dyx-dot.FAIL,.dyx-dot.FAILED{background:#dc2626}",
-  ".dyx-record-list{display:grid;gap:9px}.dyx-record{padding:12px;border:1px solid var(--dyx-line);border-radius:11px;background:var(--dyx-panel2)}.dyx-record-head,.dyx-record-foot{display:flex;align-items:center;justify-content:space-between;gap:9px}.dyx-record-title{margin:9px 0;color:var(--dyx-text);font-size:14px;font-weight:650;line-height:1.45}.dyx-record-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--dyx-muted);font-size:12px}.dyx-record-foot{margin-top:10px;padding-top:9px;border-top:1px solid var(--dyx-line)}",
-  ".dyx-inline-status{width:150px;min-height:32px;padding:5px 28px 5px 9px;font-size:12px}",
+  ".dyx-record-list{display:grid;gap:9px}.dyx-record{padding:12px;border:1px solid var(--dyx-line);border-radius:11px;background:var(--dyx-panel2)}.dyx-record.dyx-record-status-pending{border-color:var(--dyx-status-pending-line);background:color-mix(in srgb,var(--dyx-status-pending) 6%,var(--dyx-panel2))}.dyx-record.dyx-record-status-processing{border-color:var(--dyx-status-processing-line);background:color-mix(in srgb,var(--dyx-status-processing) 6%,var(--dyx-panel2))}.dyx-record.dyx-record-status-reopened{border-color:var(--dyx-status-reopened-line);background:color-mix(in srgb,var(--dyx-status-reopened) 6%,var(--dyx-panel2))}.dyx-record-head,.dyx-record-foot{display:flex;align-items:center;justify-content:space-between;gap:9px}.dyx-record-title{margin:9px 0;color:var(--dyx-text);font-size:14px;font-weight:650;line-height:1.45}.dyx-record-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--dyx-muted);font-size:12px}.dyx-record-foot{margin-top:10px;padding-top:9px;border-top:1px solid var(--dyx-line)}",
+  ".dyx-inline-status{width:150px;min-height:32px;padding:5px 28px 5px 9px;font-size:12px}.dyx-status-pending{color:var(--dyx-status-pending);border-color:var(--dyx-status-pending-line);background:var(--dyx-status-pending-bg)}.dyx-status-processing{color:var(--dyx-status-processing);border-color:var(--dyx-status-processing-line);background:var(--dyx-status-processing-bg)}.dyx-status-reopened{color:var(--dyx-status-reopened);border-color:var(--dyx-status-reopened-line);background:var(--dyx-status-reopened-bg)}",
   ".dyx-toast-wrap{position:absolute;z-index:60;right:12px;top:12px;display:grid;gap:8px}.dyx-toast{max-width:340px;padding:10px 14px;border:1px solid var(--dyx-line);border-radius:10px;background:var(--dyx-panel);box-shadow:var(--dyx-shadow)}.dyx-toast.error{color:var(--dyx-danger)}",
+  ".dyx-global-notice{position:fixed;z-index:2147483000;right:22px;top:22px;width:min(380px,calc(100vw - 44px));padding:14px 16px;border:1px solid var(--dyx-status-reopened-line);border-radius:12px;color:var(--dyx-text);background:color-mix(in srgb,var(--dyx-status-reopened) 7%,var(--dyx-panel));box-shadow:var(--dyx-shadow);font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;animation:dyx-slide-in .18s ease-out}.dyx-global-notice strong{display:block;margin-bottom:2px}.dyx-global-notice span{display:block;color:var(--dyx-muted);font-size:12px}.dyx-global-notice-actions{margin-top:11px;display:flex;justify-content:flex-end;gap:8px}.dyx-global-notice-actions button{min-height:30px;padding:5px 10px;border:1px solid var(--dyx-line);border-radius:8px;color:var(--dyx-text);background:var(--dyx-panel);cursor:pointer;font:inherit}.dyx-global-notice-actions button.primary{border-color:var(--dyx-brand);color:#fff;background:#2563eb}",
   ".dyx-loading{opacity:.65;pointer-events:none}.dyx-stale{margin-bottom:10px;padding:8px 11px;border-radius:9px;color:#a16207;background:rgba(245,158,11,.12)}",
-  "@container(max-width:430px){.dyx-main{padding:12px}.dyx-tools{grid-template-columns:1fr}.dyx-title{display:block}.dyx-title>.dyx-btn,.dyx-title>.dyx-actions{margin-top:9px}.dyx-modal-body{padding:14px}.dyx-head{padding:0 12px}.dyx-head-copy strong{font-size:15px}.dyx-nav button{font-size:12px}.dyx-nav button span:first-child{display:none}.dyx-status-row{align-items:stretch;flex-direction:column}.dyx-status-row .dyx-field{min-width:0}}",
+  "@container(max-width:430px){.dyx-main{padding:12px}.dyx-tools,.dyx-notify-grid{grid-template-columns:1fr}.dyx-title{display:block}.dyx-title>.dyx-btn,.dyx-title>.dyx-actions{margin-top:9px}.dyx-modal-body{padding:14px}.dyx-head{padding:0 12px}.dyx-head-copy strong{font-size:15px}.dyx-nav button{font-size:12px}.dyx-nav button span:first-child{display:none}.dyx-status-row{align-items:stretch;flex-direction:column}.dyx-status-row .dyx-field{min-width:0}}",
   "@media(max-width:760px){.dyx-preview-host{inset:0;width:100%;border-radius:0}}"
 ].join("");
 
@@ -112,6 +116,27 @@ function dateValue(value) {
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
+function applyDefectStatusTone(select, statusName) {
+  select.classList.remove("dyx-status-pending", "dyx-status-processing", "dyx-status-reopened");
+  var normalized = String(statusName || "").trim();
+  if (["待确认", "未确认"].indexOf(normalized) >= 0) select.classList.add("dyx-status-pending");
+  else if (normalized === "处理中") select.classList.add("dyx-status-processing");
+  else if (["再次打开", "重新打开", "REOPEN", "REOPENED"].indexOf(normalized.toUpperCase()) >= 0) select.classList.add("dyx-status-reopened");
+}
+
+function applyDefectRecordTone(card, statusName) {
+  card.classList.remove("dyx-record-status-pending", "dyx-record-status-processing", "dyx-record-status-reopened");
+  var normalized = String(statusName || "").trim();
+  if (["待确认", "未确认"].indexOf(normalized) >= 0) card.classList.add("dyx-record-status-pending");
+  else if (normalized === "处理中") card.classList.add("dyx-record-status-processing");
+  else if (["再次打开", "重新打开", "REOPEN", "REOPENED"].indexOf(normalized.toUpperCase()) >= 0) card.classList.add("dyx-record-status-reopened");
+}
+
+function selectedOptionText(select) {
+  var option = select.options && select.options[select.selectedIndex];
+  return option ? option.textContent : "";
+}
+
 function readPanelWidth() {
   try {
     var value = Number(window.localStorage.getItem(PANEL_WIDTH_STORAGE_KEY));
@@ -153,6 +178,261 @@ function rpc(method, args) {
       return payload.data;
     });
   });
+}
+
+function defaultDefectNotification() {
+  return { enabled: false, assignedToId: "", assignedToName: "", intervalMinutes: DEFAULT_NOTIFICATION_INTERVAL };
+}
+
+function createDefectNotifier(options) {
+  options = options || {};
+  var timer = null;
+  var disposed = false;
+  var polling = null;
+  var assigneeLoading = null;
+  var seenByScope = new Map();
+  var listeners = new Set();
+  var snapshot = {
+    accountId: "",
+    projectId: "",
+    projectName: "",
+    settings: defaultDefectNotification(),
+    assignees: [],
+    unreadCount: 0,
+    lastCheckedAt: "",
+    lastError: "",
+    lastResultCount: 0,
+    lastAddedCount: 0,
+    lastQueryCount: 0,
+    lastWindowsStatus: "尚未触发"
+  };
+
+  function copySnapshot() {
+    return Object.assign({}, snapshot, {
+      settings: Object.assign({}, snapshot.settings),
+      assignees: snapshot.assignees.slice()
+    });
+  }
+
+  function emit() {
+    var value = copySnapshot();
+    listeners.forEach(function (listener) { listener(value); });
+  }
+
+  function mergeAssignees(items) {
+    var values = new Map(snapshot.assignees.map(function (item) { return [item.id, item]; }));
+    (items || []).forEach(function (item) { if (item && item.id && item.name) values.set(item.id, item); });
+    snapshot.assignees = Array.from(values.values()).sort(function (left, right) { return left.name.localeCompare(right.name, "zh-CN"); });
+  }
+
+  function applyServerState(server) {
+    var account = (server.accounts || []).find(function (item) { return item.id === server.selectedAccountId; }) || null;
+    var project = account && account.selectedProject || null;
+    snapshot.accountId = account && account.id || "";
+    snapshot.projectId = project && project.id || "";
+    snapshot.projectName = project && project.name || "";
+    snapshot.settings = Object.assign(defaultDefectNotification(), account && account.defectNotification || {});
+    snapshot.settings.intervalMinutes = Math.min(1440, Math.max(1, Number(snapshot.settings.intervalMinutes) || DEFAULT_NOTIFICATION_INTERVAL));
+    if (!snapshot.settings.enabled && snapshot.accountId && snapshot.projectId) {
+      seenByScope.delete([snapshot.accountId, snapshot.projectId, snapshot.settings.assignedToId || "*"].join(":"));
+    }
+    if (snapshot.settings.assignedToId && snapshot.settings.assignedToName) {
+      mergeAssignees([{ id: snapshot.settings.assignedToId, name: snapshot.settings.assignedToName }]);
+    }
+  }
+
+  function schedule() {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    if (disposed || !snapshot.settings.enabled || !snapshot.accountId || !snapshot.projectId) return;
+    timer = setTimeout(runPoll, snapshot.settings.intervalMinutes * NOTIFICATION_MINUTE_MS);
+  }
+
+  function showWebNotification(count, items) {
+    if (!("Notification" in window)) return "Web 通知不支持";
+    if (window.Notification.permission !== "granted") return "Web 通知未授权";
+    try {
+      var notification = new window.Notification("云效缺陷提醒", {
+        body: "新增 " + count + " 个缺陷需修复",
+        tag: "dsh-yunxiao-defects-" + snapshot.accountId + "-" + snapshot.projectId + "-" + Date.now(),
+        renotify: true,
+        requireInteraction: true
+      });
+      notification.onclick = function () {
+        try { window.focus(); } catch (error) {}
+        if (typeof options.onOpen === "function") options.onOpen(items || []);
+        notification.close();
+      };
+      return window.__dsh_native_notification_bridge__
+        ? "已请求 Harness 原生通知（系统无展示回执）"
+        : "已提交给 Web 通知";
+    } catch (error) {
+      return "Web 通知调用失败";
+    }
+  }
+
+  function showSystemNotification(count, items) {
+    snapshot.lastWindowsStatus = "正在提交";
+    emit();
+    if (window.__dsh_native_notification_bridge__) {
+      snapshot.lastWindowsStatus = showWebNotification(count, items);
+      emit();
+      return Promise.resolve(copySnapshot());
+    }
+    return rpc("system.notification.show", {
+      title: "云效缺陷提醒",
+      body: "新增 " + count + " 个缺陷需修复"
+    }).then(function (result) {
+      snapshot.lastWindowsStatus = result && result.accepted
+        ? "已提交给 Windows 原生通知"
+        : showWebNotification(count, items);
+    }).catch(function (error) {
+      var fallback = showWebNotification(count, items);
+      snapshot.lastWindowsStatus = "原生通知失败；" + fallback + "（" + (error instanceof Error ? error.message : String(error)) + "）";
+    }).then(function () {
+      emit();
+      return copySnapshot();
+    });
+  }
+
+  function clearInAppNotification() {
+    var existing = document.querySelector(".dyx-global-notice");
+    if (existing) existing.remove();
+  }
+
+  function showInAppNotification(count, testOnly, items) {
+    clearInAppNotification();
+    var notice = node("div", "dyx-global-notice");
+    notice.setAttribute("role", "alert");
+    notice.append(
+      node("strong", "", testOnly ? "缺陷内部通知测试" : "新增 " + count + " 个缺陷需修复"),
+      node("span", "", testOnly ? "内部通知显示正常；实际命中后会在这里显示新增数量。" : "状态为待确认或再次打开，请及时处理。")
+    );
+    var actions = node("div", "dyx-global-notice-actions");
+    var close = node("button", "", "关闭");
+    close.type = "button";
+    close.addEventListener("click", clearInAppNotification);
+    actions.append(close);
+    if (!testOnly) {
+      var view = node("button", "primary", "查看缺陷");
+      view.type = "button";
+      view.addEventListener("click", function () {
+        clearInAppNotification();
+        if (typeof options.onOpen === "function") options.onOpen(items || []);
+      });
+      actions.append(view);
+    }
+    notice.append(actions);
+    document.body.append(notice);
+  }
+
+  function runPoll() {
+    if (disposed) return Promise.resolve(copySnapshot());
+    if (polling) return polling;
+    polling = rpc("state.get").then(function (server) {
+      applyServerState(server);
+      if (!snapshot.settings.enabled || !snapshot.accountId || !snapshot.projectId) return null;
+      var scope = [snapshot.accountId, snapshot.projectId, snapshot.settings.assignedToId || "*"].join(":");
+      return rpc("defect.notification.scan", {
+        accountId: snapshot.accountId,
+        projectId: snapshot.projectId,
+        assignedToId: snapshot.settings.assignedToId || ""
+      }).then(function (result) {
+        mergeAssignees(result.assignees || []);
+        var ids = (result.ids || []).filter(Boolean);
+        var seen = seenByScope.get(scope);
+        snapshot.lastResultCount = ids.length;
+        snapshot.lastQueryCount = Number(result.queryCount || 0);
+        snapshot.lastAddedCount = 0;
+        if (!seen) {
+          seen = new Set(ids);
+          seenByScope.set(scope, seen);
+        } else {
+          var addedIds = ids.filter(function (id) { return !seen.has(id); });
+          seenByScope.set(scope, new Set(ids));
+          var addedSet = new Set(addedIds);
+          var addedItems = (result.items || []).filter(function (item) { return item && addedSet.has(item.id); });
+          if (addedItems.length) {
+            snapshot.lastAddedCount = addedItems.length;
+            snapshot.unreadCount += addedItems.length;
+            showInAppNotification(addedItems.length, false, addedItems);
+            showSystemNotification(addedItems.length, addedItems);
+          }
+        }
+        snapshot.lastCheckedAt = result.checkedAt || new Date().toISOString();
+        snapshot.lastError = "";
+      });
+    }).catch(function (error) {
+      snapshot.lastError = error instanceof Error ? error.message : String(error);
+    }).then(function () {
+      emit();
+      return copySnapshot();
+    }).finally(function () {
+      polling = null;
+      schedule();
+    });
+    return polling;
+  }
+
+  function refresh() {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    return runPoll();
+  }
+
+  function loadAssignees() {
+    if (assigneeLoading) return assigneeLoading;
+    var prepare = snapshot.accountId && snapshot.projectId
+      ? Promise.resolve()
+      : rpc("state.get").then(applyServerState);
+    assigneeLoading = prepare.then(function () {
+      if (!snapshot.accountId || !snapshot.projectId) return [];
+      return rpc("defect.notification.assignees", {
+        accountId: snapshot.accountId,
+        projectId: snapshot.projectId
+      });
+    }).then(function (items) {
+      mergeAssignees(items || []);
+      emit();
+      return copySnapshot();
+    }).catch(function (error) {
+      snapshot.lastError = error instanceof Error ? error.message : String(error);
+      emit();
+      return copySnapshot();
+    }).finally(function () { assigneeLoading = null; });
+    return assigneeLoading;
+  }
+
+  function markRead() {
+    if (!snapshot.unreadCount) return;
+    snapshot.unreadCount = 0;
+    clearInAppNotification();
+    emit();
+  }
+
+  function subscribe(listener) {
+    listeners.add(listener);
+    return function () { listeners.delete(listener); };
+  }
+
+  function dispose() {
+    disposed = true;
+    if (timer) clearTimeout(timer);
+    timer = null;
+    listeners.clear();
+  }
+
+  return {
+    start: refresh,
+    refresh: refresh,
+    loadAssignees: loadAssignees,
+    testInAppNotification: function () { showInAppNotification(1, true); },
+    testSystemNotification: function () { return showSystemNotification(1, []); },
+    markRead: markRead,
+    subscribe: subscribe,
+    snapshot: copySnapshot,
+    dispose: dispose
+  };
 }
 
 function toast(message, error) {
@@ -199,7 +479,7 @@ function modal(title, wide) {
   return { overlay: drawer, box: box, body: body, foot: foot, close: closeDrawer };
 }
 
-function createWorkspace(onRequestClose) {
+function createWorkspace(onRequestClose, notifier) {
   var state = {
     server: { accounts: [], selectedAccountId: "" },
     tab: "overview",
@@ -223,6 +503,8 @@ function createWorkspace(onRequestClose) {
   var defectStatusFilterControl;
   var defectAssigneeFilterControl;
   var defectLoadRevision = 0;
+  var notificationAssigneesScope = "";
+  var unsubscribeNotifier = null;
 
   function selectedAccount() {
     return state.server.accounts.find(function (item) { return item.id === state.server.selectedAccountId; }) || null;
@@ -257,6 +539,7 @@ function createWorkspace(onRequestClose) {
 
   function setTab(tab) {
     state.tab = tab;
+    if (tab === "defects" && notifier) notifier.markRead();
     Object.keys(navButtons).forEach(function (key) { navButtons[key].classList.toggle("active", key === tab); });
     render();
     if (tab === "defects" && selectedProject()) loadDefects();
@@ -331,7 +614,8 @@ function createWorkspace(onRequestClose) {
         setBusy(projectCard, true);
         rpc("project.select", { accountId: account.id, project: project })
           .then(loadState)
-          .then(function () { toast("已切换到“" + project.name + "”"); render(); })
+          .then(function () { return notifier ? notifier.refresh() : null; })
+          .then(function () { notificationAssigneesScope = ""; toast("已切换到“" + project.name + "”"); render(); })
           .catch(function (error) { toast(error.message, true); })
           .finally(function () { setBusy(projectCard, false); });
       }));
@@ -342,7 +626,125 @@ function createWorkspace(onRequestClose) {
       projectCard.append(current);
     }
     section.append(projectCard);
+    renderDefectNotification(section, account);
     main.append(section);
+  }
+
+  function renderDefectNotification(section, account) {
+    var project = account && account.selectedProject || null;
+    var settings = Object.assign(defaultDefectNotification(), account && account.defectNotification || {});
+    var noticeState = notifier ? notifier.snapshot() : { assignees: [], unreadCount: 0, lastCheckedAt: "", lastError: "" };
+    var card = node("div", "dyx-card");
+    var head = node("div", "dyx-card-head");
+    head.append(node("h3", "", "缺陷通知"), node("span", "dyx-badge " + (settings.enabled ? "ok" : ""), settings.enabled ? "已开启" : "未开启"));
+    card.append(head, node("p", "dyx-notify-copy", "定时检查“待确认、再次打开”的新增缺陷；首次查询只建立基线，不提示已有缺陷。"));
+    if (!account || !project) {
+      card.append(empty(!account ? "请先选择账号" : "请先选择项目", "通知配置按账号和项目分别保存。"));
+      section.append(card);
+      return;
+    }
+
+    var toggle = input("checkbox");
+    toggle.checked = Boolean(settings.enabled);
+    toggle.setAttribute("aria-label", "开启缺陷通知");
+    var toggleWrap = node("label", "dyx-notify-toggle");
+    var toggleCopy = node("span");
+    toggleCopy.append(node("strong", "", "Windows 系统通知"), node("div", "dyx-muted", "有新增缺陷时显示系统提醒"));
+    toggleWrap.append(toggleCopy, toggle);
+
+    var assignee = node("select", "dyx-select");
+    assignee.setAttribute("aria-label", "缺陷通知负责人");
+    var emptyAssignee = node("option", "", "不选择负责人");
+    emptyAssignee.value = "";
+    assignee.append(emptyAssignee);
+    var assignees = noticeState.accountId === account.id && noticeState.projectId === project.id ? noticeState.assignees : [];
+    if (settings.assignedToId && !assignees.some(function (item) { return item.id === settings.assignedToId; })) {
+      assignees = [{ id: settings.assignedToId, name: settings.assignedToName || settings.assignedToId }].concat(assignees);
+    }
+    assignees.forEach(function (item) { var option = node("option", "", item.name); option.value = item.id; assignee.append(option); });
+    assignee.value = settings.assignedToId || "";
+
+    var interval = node("select", "dyx-select");
+    interval.setAttribute("aria-label", "缺陷通知查询间隔");
+    [1, 5, 10, 15, 30, 60].forEach(function (minutes) {
+      var option = node("option", "", minutes + " 分钟");
+      option.value = String(minutes);
+      interval.append(option);
+    });
+    if (!Array.from(interval.options).some(function (item) { return item.value === String(settings.intervalMinutes); })) {
+      var custom = node("option", "", settings.intervalMinutes + " 分钟");
+      custom.value = String(settings.intervalMinutes);
+      interval.append(custom);
+    }
+    interval.value = String(settings.intervalMinutes);
+
+    function saveNotification(next) {
+      setBusy(card, true);
+      rpc("defect.notification.settings.update", rpcArgs(Object.assign({}, settings, next))).then(loadState).then(function () {
+        return notifier ? notifier.refresh() : null;
+      }).then(function () {
+        render();
+        toast(next.enabled === true ? "缺陷通知已开启" : next.enabled === false ? "缺陷通知已关闭" : "缺陷通知设置已更新");
+      }).catch(function (error) {
+        toggle.checked = Boolean(settings.enabled);
+        toast(error.message, true);
+      }).finally(function () { setBusy(card, false); });
+    }
+
+    toggle.addEventListener("change", function () {
+      if (!toggle.checked) { saveNotification({ enabled: false }); return; }
+      saveNotification({ enabled: true });
+    });
+    assignee.addEventListener("change", function () {
+      var option = assignee.options[assignee.selectedIndex];
+      saveNotification({ assignedToId: assignee.value, assignedToName: assignee.value && option ? option.textContent : "" });
+    });
+    interval.addEventListener("change", function () { saveNotification({ intervalMinutes: Number(interval.value) }); });
+
+    var grid = node("div", "dyx-notify-grid");
+    grid.append(field("负责人（不选择则不限制）", assignee), field("查询间隔", interval));
+    card.append(toggleWrap, grid);
+    var notifyActions = node("div", "dyx-notify-actions");
+    var testNotice = button("测试内部通知", "", function () { if (notifier) notifier.testInAppNotification(); });
+    var testWindowsNotice = button("测试 Windows 通知", "", function () {
+      if (!notifier) return;
+      testWindowsNotice.disabled = true;
+      notifier.testSystemNotification().then(function (latest) {
+        toast("Windows 通知调用：" + latest.lastWindowsStatus);
+      }).finally(function () { testWindowsNotice.disabled = false; });
+    });
+    var checkNow = button("立即检查", "", function () {
+      checkNow.disabled = true;
+      Promise.resolve(notifier && notifier.refresh()).then(function (value) {
+        var latest = value || notifier.snapshot();
+        toast("检查完成：当前命中 " + latest.lastResultCount + " 条，本轮新增 " + latest.lastAddedCount + " 条");
+      }).catch(function (error) { toast(error.message, true); }).finally(function () { checkNow.disabled = false; });
+    });
+    checkNow.disabled = !settings.enabled;
+    notifyActions.append(testNotice, testWindowsNotice, checkNow);
+    card.append(notifyActions);
+    var status = node("div", "dyx-notify-status");
+    if (settings.enabled) {
+      status.append(node("strong", "", "正在监控"), document.createTextNode(" · 每 " + settings.intervalMinutes + " 分钟检查一次"));
+      if (noticeState.unreadCount) status.append(document.createTextNode(" · 本次运行新增 " + noticeState.unreadCount + " 条"));
+      if (noticeState.lastCheckedAt) status.append(document.createTextNode(" · 最近检查 " + formatDate(noticeState.lastCheckedAt)));
+      status.append(node("div", "dyx-muted", "最近结果：两次查询合并 " + noticeState.lastResultCount + " 条，本轮新增 " + noticeState.lastAddedCount + " 条"));
+      var permissionText = window.__dsh_native_notification_bridge__ ? "宿主已授权（无需弹窗）" : !("Notification" in window) ? "不支持" : window.Notification.permission === "granted" ? "已授权" : window.Notification.permission === "denied" ? "已拒绝" : "待授权";
+      status.append(node("div", "dyx-muted", "通知权限：" + permissionText));
+      status.append(node("div", "dyx-muted", "通知通道：" + (window.__dsh_native_notification_bridge__ ? "Harness 原生通知桥" : "Windows 后端 / Web 兜底")));
+      status.append(node("div", "dyx-muted", "Windows 最近调用：" + (noticeState.lastWindowsStatus || "尚未触发")));
+      if (noticeState.lastError) status.append(node("div", "dyx-muted", "最近检查失败：" + noticeState.lastError));
+    } else {
+      status.textContent = "开启后即刻建立当前缺陷基线，随后仅提醒本次运行中新出现的 ID。";
+    }
+    card.append(status);
+    section.append(card);
+
+    var scope = account.id + ":" + project.id;
+    if (notifier && notificationAssigneesScope !== scope) {
+      notificationAssigneesScope = scope;
+      Promise.resolve().then(function () { return notifier.loadAssignees(); });
+    }
   }
 
   function openAccountForm(account) {
@@ -367,7 +769,8 @@ function createWorkspace(onRequestClose) {
         dialog.close();
         state.projects = [];
         return loadState();
-      }).then(function () { render(); toast("账号已保存"); })
+      }).then(function () { return notifier ? notifier.refresh() : null; })
+        .then(function () { notificationAssigneesScope = ""; render(); toast("账号已保存"); })
         .catch(function (error) { toast(error.message, true); })
         .finally(function () { submit.disabled = false; });
     }));
@@ -378,7 +781,8 @@ function createWorkspace(onRequestClose) {
     rpc("account.select", { accountId: id }).then(function () {
       state.projects = [];
       return loadState();
-    }).then(function () { render(); }).catch(function (error) { toast(error.message, true); });
+    }).then(function () { return notifier ? notifier.refresh() : null; })
+      .then(function () { notificationAssigneesScope = ""; render(); }).catch(function (error) { toast(error.message, true); });
   }
 
   function removeAccount(account) {
@@ -386,7 +790,8 @@ function createWorkspace(onRequestClose) {
     rpc("account.delete", { accountId: account.id }).then(function () {
       state.projects = [];
       return loadState();
-    }).then(function () { render(); toast("账号已删除"); }).catch(function (error) { toast(error.message, true); });
+    }).then(function () { return notifier ? notifier.refresh() : null; })
+      .then(function () { notificationAssigneesScope = ""; render(); toast("账号已删除"); }).catch(function (error) { toast(error.message, true); });
   }
 
   function loadProjects() {
@@ -475,13 +880,19 @@ function createWorkspace(onRequestClose) {
     var wrap = node("div", "dyx-record-list");
     items.forEach(function (item) {
       var card = node("article", "dyx-record");
+      applyDefectRecordTone(card, item.statusName);
       var head = node("div", "dyx-record-head");
       var statusSelect = node("select", "dyx-select dyx-inline-status");
       statusSelect.setAttribute("aria-label", "修改 " + (item.serialNumber || "缺陷") + " 状态");
       fillListStatusSelect(statusSelect, item);
       statusSelect.addEventListener("pointerdown", function () { loadListStatuses(item, statusSelect); });
       statusSelect.addEventListener("focus", function () { loadListStatuses(item, statusSelect); });
-      statusSelect.addEventListener("change", function () { saveListStatus(item, statusSelect); });
+      statusSelect.addEventListener("change", function () {
+        var statusName = selectedOptionText(statusSelect);
+        applyDefectStatusTone(statusSelect, statusName);
+        applyDefectRecordTone(card, statusName);
+        saveListStatus(item, statusSelect, card);
+      });
       head.append(node("strong", "", item.serialNumber || "缺陷"), statusSelect);
       var title = node("button", "dyx-link dyx-record-title", item.subject || "未命名缺陷");
       title.type = "button";
@@ -529,6 +940,7 @@ function createWorkspace(onRequestClose) {
     statuses.forEach(function (status) { var option = node("option", "", status.name); option.value = status.id; select.append(option); });
     if (!statuses.length) { var emptyOption = node("option", "", item.statusName || "未知状态"); emptyOption.value = item.statusId || ""; select.append(emptyOption); }
     select.value = item.statusId || "";
+    applyDefectStatusTone(select, item.statusName);
     select.disabled = Boolean(state.defectStatusSaving[item.id]);
   }
 
@@ -545,7 +957,7 @@ function createWorkspace(onRequestClose) {
     });
   }
 
-  function saveListStatus(item, select) {
+  function saveListStatus(item, select, card) {
     var statusId = select.value;
     if (!statusId || statusId === item.statusId || state.defectStatusSaving[item.id]) return;
     var previousStatusId = item.statusId;
@@ -553,12 +965,15 @@ function createWorkspace(onRequestClose) {
     select.disabled = true;
     rpc("defect.status.update", rpcArgs({ defectId: item.id, statusId: statusId })).then(function (updated) {
       Object.assign(item, updated);
+      applyDefectRecordTone(card, updated.statusName);
       mergeDefectOptions([updated], state.defectStatuses[item.id]);
       fillListStatusSelect(select, item);
       toast("缺陷状态已更新");
       loadDefects();
     }).catch(function (error) {
       select.value = previousStatusId || "";
+      applyDefectStatusTone(select, item.statusName);
+      applyDefectRecordTone(card, item.statusName);
       toast(error.message, true);
     }).finally(function () {
       delete state.defectStatusSaving[item.id];
@@ -604,6 +1019,18 @@ function createWorkspace(onRequestClose) {
     }).catch(function (error) { dialog.body.textContent = ""; dialog.body.append(empty("读取失败", error.message)); });
   }
 
+  function openNotifiedDefects(items) {
+    var values = (items || []).filter(function (item) { return item && item.id; });
+    return loadState().then(function () {
+      setTab("defects");
+      if (!values.length) return;
+      openDefect(values[0]);
+      if (values.length > 1) toast("本次新增 " + values.length + " 个缺陷，当前打开第一条");
+    }).catch(function (error) {
+      toast(error instanceof Error ? error.message : String(error), true);
+    });
+  }
+
   function renderDefectDetail(dialog, detail) {
     dialog.body.textContent = "";
     var item = detail.defect;
@@ -616,19 +1043,23 @@ function createWorkspace(onRequestClose) {
       var option = node("option", "", status.name); option.value = status.id; option.selected = status.id === item.statusId; select.append(option);
     });
     if (!detail.statuses || !detail.statuses.length) { var current = node("option", "", item.statusName || "未知状态"); current.value = item.statusId || ""; select.append(current); select.disabled = true; }
+    applyDefectStatusTone(select, item.statusName);
     select.addEventListener("change", function () {
       var statusId = select.value;
       if (!statusId || statusId === item.statusId) return;
       var previousStatusId = item.statusId;
+      applyDefectStatusTone(select, selectedOptionText(select));
       select.disabled = true;
       rpc("defect.status.update", rpcArgs({ defectId: item.id, statusId: statusId })).then(function (updated) {
         detail.defect = updated; item = updated;
+        applyDefectStatusTone(select, updated.statusName);
         var listed = state.defects.items.find(function (entry) { return entry.id === updated.id; });
         if (listed) Object.assign(listed, updated);
         toast("缺陷状态已更新");
         loadDefects();
       }).catch(function (error) {
         select.value = previousStatusId || "";
+        applyDefectStatusTone(select, item.statusName);
         toast(error.message, true);
       }).finally(function () {
         select.disabled = !detail.statuses || !detail.statuses.length;
@@ -881,6 +1312,7 @@ function createWorkspace(onRequestClose) {
       var tab = node("button", item[0] === state.tab ? "active" : ""); tab.type = "button"; tab.append(node("span", "", item[1]), node("span", "", item[2])); tab.addEventListener("click", function () { setTab(item[0]); }); navButtons[item[0]] = tab; nav.append(tab);
     });
     main = node("main", "dyx-main"); body.append(nav, main); shell.append(head, body); root.append(shell); (container || document.body).append(root);
+    if (notifier) unsubscribeNotifier = notifier.subscribe(function () { if (root && state.tab === "overview") render(); });
     render();
     loadState().then(function () { render(); }).catch(function (error) { toast(error.message, true); });
   }
@@ -893,10 +1325,12 @@ function createWorkspace(onRequestClose) {
   function dispose() {
     if (root) root.querySelectorAll(".dyx-drawer .dyx-close").forEach(function (item) { item.click(); });
     var value = document.getElementById(ROOT_ID); if (value) value.remove();
+    if (unsubscribeNotifier) unsubscribeNotifier();
+    unsubscribeNotifier = null;
     root = null;
   }
 
-  return { mount: mount, dispose: dispose };
+  return { mount: mount, dispose: dispose, openNotifiedDefects: openNotifiedDefects };
 }
 
 var ALLOWED_TAGS = new Set(["A", "BLOCKQUOTE", "BR", "CODE", "DEL", "DIV", "EM", "FIGCAPTION", "FIGURE", "H1", "H2", "H3", "H4", "H5", "H6", "HR", "IMG", "LI", "OL", "P", "PRE", "S", "SPAN", "STRONG", "TABLE", "TBODY", "TD", "TH", "THEAD", "TR", "U", "UL"]);
@@ -962,11 +1396,16 @@ function apply(ctx) {
     ctx.slots && ctx.layout
   );
   if (!hasNativeSurface) {
+    var previewWorkspace = null;
+    var previewNotifier = createDefectNotifier({
+      onOpen: function (items) { if (previewWorkspace) previewWorkspace.openNotifiedDefects(items); }
+    });
     var previewHost = node("div", "dyx-preview-host");
     document.body.append(previewHost);
-    var previewWorkspace = createWorkspace(function () { previewHost.remove(); });
+    previewWorkspace = createWorkspace(function () { previewHost.remove(); }, previewNotifier);
     previewWorkspace.mount(previewHost);
-    ctx.effect(function () { return function () { previewWorkspace.dispose(); previewHost.remove(); if (!existingStyle) style.remove(); }; }, "dsh-yunxiao: standalone preview");
+    previewNotifier.start();
+    ctx.effect(function () { return function () { previewNotifier.dispose(); previewWorkspace.dispose(); previewHost.remove(); if (!existingStyle) style.remove(); }; }, "dsh-yunxiao: standalone preview");
     return;
   }
 
@@ -1012,6 +1451,19 @@ function apply(ctx) {
     if (panelOpen) { ctx.layout.openDetails(); widenWorkspaceFrame(); }
     else { restoreWorkspaceFrame(); ctx.layout.closeDetails(); }
   }
+  var activeWorkspace = null;
+  var pendingNoticeItems = [];
+  function openNotifiedItems(items) {
+    pendingNoticeItems = (items || []).slice();
+    setPanelOpen(true);
+    if (activeWorkspace) {
+      var nextItems = pendingNoticeItems;
+      pendingNoticeItems = [];
+      activeWorkspace.openNotifiedDefects(nextItems);
+    }
+  }
+  var notifier = createDefectNotifier({ onOpen: openNotifiedItems });
+  notifier.start();
 
   function RightWorkspace() {
     var openState = ReactRuntime.useState(panelOpen);
@@ -1024,9 +1476,18 @@ function apply(ctx) {
     }, []);
     ReactRuntime.useEffect(function () {
       if (!open || !hostRef.current) return;
-      var workspace = createWorkspace(function () { setPanelOpen(false); });
+      var workspace = createWorkspace(function () { setPanelOpen(false); }, notifier);
+      activeWorkspace = workspace;
       workspace.mount(hostRef.current);
-      return function () { workspace.dispose(); };
+      if (pendingNoticeItems.length) {
+        var nextItems = pendingNoticeItems;
+        pendingNoticeItems = [];
+        workspace.openNotifiedDefects(nextItems);
+      }
+      return function () {
+        if (activeWorkspace === workspace) activeWorkspace = null;
+        workspace.dispose();
+      };
     }, [open]);
     if (!open) return null;
     function beginResize(event) {
@@ -1082,6 +1543,12 @@ function apply(ctx) {
 
   function SidebarTrigger(props) {
     var wide = Boolean(props && props.wide);
+    var countState = ReactRuntime.useState(notifier.snapshot().unreadCount);
+    var count = countState[0];
+    var setCount = countState[1];
+    ReactRuntime.useEffect(function () {
+      return notifier.subscribe(function (value) { setCount(value.unreadCount); });
+    }, []);
     return ReactRuntime.createElement("button", {
       type: "button",
       className: "dyx-sidebar-trigger",
@@ -1091,7 +1558,8 @@ function apply(ctx) {
       onClick: function () { setPanelOpen(true); }
     },
     ReactRuntime.createElement("span", { className: "dyx-sidebar-trigger-mark", "aria-hidden": "true" }, "云"),
-    wide ? ReactRuntime.createElement("span", null, "云效工作台") : null);
+    wide ? ReactRuntime.createElement("span", null, "云效工作台") : null,
+    count ? ReactRuntime.createElement("span", { className: "dyx-sidebar-trigger-count", "aria-label": "新增 " + count + " 个缺陷" }, count > 99 ? "99+" : String(count)) : null);
   }
 
   ctx.slots.inject("sidebar.footer.action", function () { return ctx.slots.register({
@@ -1109,6 +1577,7 @@ function apply(ctx) {
   ctx.effect(function () { return function () {
     panelOpen = false;
     panelListeners.clear();
+    notifier.dispose();
     restoreWorkspaceFrame();
     window.removeEventListener("resize", onWindowResize);
     document.documentElement.classList.remove("dyx-resizing");

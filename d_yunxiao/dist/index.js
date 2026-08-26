@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { spawn } from "node:child_process";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -27,6 +28,36 @@ function cleanText(value, max = 4000) {
 function clampInteger(value, fallback, min, max) {
   const parsed = Number.parseInt(String(value), 10);
   return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
+}
+
+function normalizeDefectNotification(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const targetMap = new Map();
+  for (const item of Array.isArray(source.targetStatuses) ? source.targetStatuses : []) {
+    const status = { id: cleanText(item?.id, 128), name: cleanText(item?.name, 100) };
+    const kind = notificationStatusKind(status.name);
+    if (status.id && kind && !targetMap.has(kind)) targetMap.set(kind, status);
+  }
+  const targetStatuses = [targetMap.get("pending"), targetMap.get("reopened")].filter(Boolean);
+  return {
+    enabled: Boolean(source.enabled),
+    assignedToId: cleanText(source.assignedToId, 128),
+    assignedToName: cleanText(source.assignedToName, 255),
+    intervalMinutes: clampInteger(source.intervalMinutes, 5, 1, 1440),
+    targetStatuses
+  };
+}
+
+function isNotifiableDefectStatus(value) {
+  const normalized = cleanText(value, 100).replace(/\s+/g, "").toUpperCase();
+  return ["待确认", "未确认", "再次打开", "重新打开", "REOPEN", "REOPENED"].includes(normalized);
+}
+
+function notificationStatusKind(value) {
+  const normalized = cleanText(value, 100).replace(/\s+/g, "").toUpperCase();
+  if (["待确认", "未确认"].includes(normalized)) return "pending";
+  if (["再次打开", "重新打开", "REOPEN", "REOPENED"].includes(normalized)) return "reopened";
+  return "";
 }
 
 function emptyState() {
@@ -90,6 +121,10 @@ function createJsonStore(fileName, cacheMaxItems) {
   }
 
   function publicAccount(account) {
+    const projectId = cleanText(account.selectedProject?.id, 128);
+    const projectSettings = account.projectSettings && typeof account.projectSettings === "object"
+      ? account.projectSettings[projectId]
+      : null;
     return {
       id: account.id,
       name: account.name,
@@ -97,6 +132,7 @@ function createJsonStore(fileName, cacheMaxItems) {
       remark: account.remark || "",
       hasToken: Boolean(account.token),
       selectedProject: account.selectedProject || null,
+      defectNotification: normalizeDefectNotification(projectSettings?.defectNotification),
       createdAt: account.createdAt,
       updatedAt: account.updatedAt
     };
@@ -184,6 +220,25 @@ function createJsonStore(fileName, cacheMaxItems) {
     });
   }
 
+  async function saveDefectNotification(accountId, projectId, input) {
+    return update((state) => {
+      const account = state.accounts.find((item) => item.id === cleanText(accountId, 100));
+      if (!account) throw new YunxiaoError("账号不存在", 404);
+      const targetProjectId = cleanText(projectId || account.selectedProject?.id, 128);
+      if (!targetProjectId) throw new YunxiaoError("请先选择项目", 422);
+      const settings = normalizeDefectNotification(input);
+      if (!account.projectSettings || typeof account.projectSettings !== "object") account.projectSettings = {};
+      const projectSettings = account.projectSettings[targetProjectId] && typeof account.projectSettings[targetProjectId] === "object"
+        ? account.projectSettings[targetProjectId]
+        : {};
+      projectSettings.defectNotification = settings;
+      account.projectSettings[targetProjectId] = projectSettings;
+      account.updatedAt = new Date().toISOString();
+      state.selectedAccountId = account.id;
+      return settings;
+    });
+  }
+
   async function putCache(accountId, key, value) {
     return update((state) => {
       const accountCache = state.cache[accountId] || {};
@@ -210,6 +265,7 @@ function createJsonStore(fileName, cacheMaxItems) {
     selectAccount,
     deleteAccount,
     selectProject,
+    saveDefectNotification,
     putCache,
     getCache
   };
@@ -305,6 +361,7 @@ function createApiClient(config) {
     const api = paths(account);
     const page = clampInteger(query.page, 1, 1, 10_000);
     const pageSize = clampInteger(query.pageSize, 20, 1, 100);
+    const orderBy = cleanText(query.orderBy, 30) === "gmtModified" ? "gmtModified" : "gmtCreate";
     const filters = [];
     for (const [fieldIdentifier, key, className, format] of [
       ["serialNumber", "serialNumber", "string", "input"],
@@ -320,7 +377,7 @@ function createApiClient(config) {
       body: {
         category: "Bug",
         conditions: JSON.stringify({ conditionGroups: filters.length ? [filters] : [] }),
-        orderBy: "gmtCreate",
+        orderBy,
         page,
         perPage: pageSize,
         sort: "desc",
@@ -403,6 +460,26 @@ function createApiClient(config) {
     }
     const statuses = await resolveDefectStatuses(account, api, itemPath, itemResponse.payload, workflowResponse);
     if (!statuses.length) throw new YunxiaoError("当前缺陷没有可用的工作流状态");
+    return statuses;
+  }
+
+  async function resolveNotificationStatuses(account, projectId) {
+    const recent = await listDefects(account, projectId, { page: 1, pageSize: 100, orderBy: "gmtModified" });
+    const candidates = (recent.items || [])
+      .filter((item) => item.statusId && notificationStatusKind(item.statusName))
+      .map((item) => ({ id: item.statusId, name: item.statusName }));
+    if (recent.items?.[0]?.id && new Set(candidates.map((item) => notificationStatusKind(item.name))).size < 2) {
+      try {
+        candidates.push(...await getDefectStatuses(account, projectId, recent.items[0].id));
+      } catch (error) {}
+    }
+    const byKind = new Map();
+    for (const status of candidates) {
+      const kind = notificationStatusKind(status.name);
+      if (kind && !byKind.has(kind)) byKind.set(kind, { id: cleanText(status.id, 128), name: cleanText(status.name, 100) });
+    }
+    const statuses = [byKind.get("pending"), byKind.get("reopened")].filter(Boolean);
+    if (statuses.length < 2) throw new YunxiaoError("未能识别“待确认”和“再次打开”的状态 ID，请先在缺陷列表中确认这两个状态可用", 422);
     return statuses;
   }
 
@@ -585,6 +662,7 @@ function createApiClient(config) {
     listDefects,
     getDefect,
     getDefectStatuses,
+    resolveNotificationStatuses,
     updateDefectStatus,
     createDefectComment,
     listPipelines,
@@ -805,7 +883,81 @@ function writeJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
-function createRpc(store, api) {
+async function showWindowsNotification(title, body, options = {}) {
+  const platform = options.platform || process.platform;
+  if (platform !== "win32") return { supported: false, accepted: false, channel: "unsupported" };
+  const spawnProcess = options.spawnProcess || spawn;
+  const safeTitle = cleanText(title, 100) || "云效缺陷提醒";
+  const safeBody = cleanText(body, 500) || "有新的缺陷需要处理";
+  const script = String.raw`
+$ErrorActionPreference = 'Stop'
+$title = [Environment]::GetEnvironmentVariable('DYX_NOTIFICATION_TITLE')
+$body = [Environment]::GetEnvironmentVariable('DYX_NOTIFICATION_BODY')
+$shown = $false
+try {
+  $app = Get-StartApps | Where-Object { $_.Name -match 'DeepSeek|Harness' } | Select-Object -First 1
+  if ($app -and $app.AppID) {
+    [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
+    [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null
+    $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+    $xml.LoadXml('<toast><visual><binding template="ToastGeneric"><text></text><text></text></binding></visual></toast>')
+    $texts = $xml.GetElementsByTagName('text')
+    $null = $texts.Item(0).AppendChild($xml.CreateTextNode($title))
+    $null = $texts.Item(1).AppendChild($xml.CreateTextNode($body))
+    $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier([string]$app.AppID).Show($toast)
+    $shown = $true
+  }
+} catch {}
+if (-not $shown) {
+  Add-Type -AssemblyName System.Windows.Forms
+  Add-Type -AssemblyName System.Drawing
+  $notify = New-Object System.Windows.Forms.NotifyIcon
+  try {
+    $notify.Icon = [System.Drawing.SystemIcons]::Information
+    $notify.Text = '云效缺陷提醒'
+    $notify.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+    $notify.BalloonTipTitle = $title
+    $notify.BalloonTipText = $body
+    $notify.Visible = $true
+    $notify.ShowBalloonTip(10000)
+    Start-Sleep -Seconds 10
+  } finally {
+    $notify.Dispose()
+  }
+}`;
+  const encoded = Buffer.from(script, "utf16le").toString("base64");
+  const child = spawnProcess("powershell.exe", [
+    "-NoLogo",
+    "-NoProfile",
+    "-NonInteractive",
+    "-Sta",
+    "-WindowStyle",
+    "Hidden",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-EncodedCommand",
+    encoded
+  ], {
+    detached: true,
+    stdio: "ignore",
+    windowsHide: true,
+    env: {
+      ...process.env,
+      DYX_NOTIFICATION_TITLE: safeTitle,
+      DYX_NOTIFICATION_BODY: safeBody
+    }
+  });
+  return new Promise((resolve, reject) => {
+    child.once("error", (error) => reject(new YunxiaoError(`Windows 原生通知启动失败：${error.message}`, 500)));
+    child.once("spawn", () => {
+      if (typeof child.unref === "function") child.unref();
+      resolve({ supported: true, accepted: true, channel: "windows-native" });
+    });
+  });
+}
+
+function createRpc(store, api, systemNotifier = showWindowsNotification) {
   async function accountAndProject(args) {
     const account = await store.getAccount(args.accountId);
     const projectId = cleanText(args.projectId || account.selectedProject?.id, 128);
@@ -832,6 +984,8 @@ function createRpc(store, api) {
     switch (method) {
       case "state.get":
         return store.publicState();
+      case "system.notification.show":
+        return systemNotifier(args.title, args.body);
       case "account.save":
         return store.saveAccount(args);
       case "account.select":
@@ -846,6 +1000,53 @@ function createRpc(store, api) {
       }
       case "project.select":
         return store.selectProject(args.accountId, args.project || {});
+      case "defect.notification.settings.update": {
+        const { account, projectId } = await accountAndProject(args);
+        const settings = normalizeDefectNotification(args);
+        if (settings.enabled && settings.targetStatuses.length < 2) {
+          settings.targetStatuses = await api.resolveNotificationStatuses(account, projectId);
+        }
+        return store.saveDefectNotification(account.id, projectId, settings);
+      }
+      case "defect.notification.scan": {
+        const { account, projectId } = await accountAndProject(args);
+        const stored = normalizeDefectNotification(account.projectSettings?.[projectId]?.defectNotification);
+        if (stored.targetStatuses.length < 2) {
+          stored.targetStatuses = await api.resolveNotificationStatuses(account, projectId);
+          await store.saveDefectNotification(account.id, projectId, stored);
+        }
+        const assignedToId = cleanText(args.assignedToId, 128);
+        const results = await Promise.all(stored.targetStatuses.map((status) => api.listDefects(account, projectId, {
+          page: 1,
+          pageSize: 100,
+          assignedToId,
+          statusId: status.id,
+          orderBy: "gmtModified"
+        })));
+        const items = Array.from(new Map(results.flatMap((result) => result.items || [])
+          .filter((item) => item.id)
+          .map((item) => [item.id, item])).values());
+        const assignees = Array.from(new Map(items
+          .filter((item) => item.assignedToId && item.assignedToName)
+          .map((item) => [item.assignedToId, { id: item.assignedToId, name: item.assignedToName }])).values());
+        return {
+          items,
+          ids: items.map((item) => item.id).filter(Boolean),
+          assignees,
+          statuses: stored.targetStatuses,
+          checkedAt: new Date().toISOString(),
+          page: 1,
+          pageSize: 100,
+          queryCount: stored.targetStatuses.length
+        };
+      }
+      case "defect.notification.assignees": {
+        const { account, projectId } = await accountAndProject(args);
+        const result = await api.listDefects(account, projectId, { page: 1, pageSize: 100 });
+        return Array.from(new Map((result.items || [])
+          .filter((item) => item.assignedToId && item.assignedToName)
+          .map((item) => [item.assignedToId, { id: item.assignedToId, name: item.assignedToName }])).values());
+      }
       case "defects.list": {
         const { account, projectId } = await accountAndProject(args);
         const cacheQuery = {
@@ -1022,5 +1223,8 @@ export {
   mapDefect,
   mapPipeline,
   mapPipelineRun,
+  isNotifiableDefectStatus,
+  normalizeDefectNotification,
+  showWindowsNotification,
   name
 };
