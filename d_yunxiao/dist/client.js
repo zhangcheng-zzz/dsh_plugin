@@ -39,14 +39,15 @@ var CSS = [
   ".dyx-main{min-width:0;overflow:auto;padding:16px}",
   ".dyx-section{max-width:100%;margin:0 auto}.dyx-title{margin:0 0 14px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.dyx-title h2{margin:0;font-size:19px}.dyx-title p{margin:3px 0 0;color:var(--dyx-muted);font-size:12px}",
   ".dyx-card{padding:14px;border:1px solid var(--dyx-line);border-radius:13px;background:var(--dyx-panel);box-shadow:0 2px 8px rgba(15,23,42,.04)}.dyx-card+.dyx-card{margin-top:12px}",
-  ".dyx-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.dyx-card-head h3{margin:0;font-size:16px}.dyx-card-head small{color:var(--dyx-muted)}",
+  ".dyx-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.dyx-card-head h3{margin:0;font-size:16px}.dyx-card-head small{color:var(--dyx-muted)}.dyx-card-title{display:flex;align-items:center;gap:8px;min-width:0}",
   ".dyx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.dyx-account{padding:15px;border:1px solid var(--dyx-line);border-radius:12px;background:var(--dyx-panel2)}.dyx-account.active{border-color:var(--dyx-brand);box-shadow:inset 0 0 0 1px var(--dyx-brand)}",
   ".dyx-account-top{display:flex;gap:11px;align-items:center;cursor:pointer}.dyx-avatar{width:38px;height:38px;display:grid;place-items:center;flex:none;border-radius:11px;color:#fff;background:linear-gradient(135deg,#2563eb,#0f766e);font-weight:800}.dyx-grow{min-width:0;flex:1}.dyx-grow strong,.dyx-grow small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dyx-grow small{color:var(--dyx-muted)}",
-  ".dyx-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.dyx-account .dyx-actions{margin-top:12px;justify-content:flex-end}",
+  ".dyx-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.dyx-account-top .dyx-actions{flex:none}",
   ".dyx-btn{min-height:34px;padding:7px 12px;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-text);background:var(--dyx-panel);cursor:pointer;font:inherit}.dyx-btn:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-btn.primary{border-color:var(--dyx-brand);color:#fff;background:#2563eb}.dyx-btn.danger{color:var(--dyx-danger)}.dyx-btn:disabled{opacity:.55;cursor:not-allowed}",
+  ".dyx-icon-btn{width:30px;min-height:30px;padding:0;border:1px solid var(--dyx-line);border-radius:8px;color:var(--dyx-muted);background:var(--dyx-panel);cursor:pointer;font:inherit;font-size:15px;line-height:1}.dyx-icon-btn:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-icon-btn:disabled{opacity:.55;cursor:not-allowed}",
   ".dyx-field{display:grid;gap:5px}.dyx-field label{color:var(--dyx-muted);font-size:12px}.dyx-input,.dyx-select,.dyx-textarea{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-text);background:var(--dyx-panel);outline:0;font:inherit}.dyx-input:focus,.dyx-select:focus,.dyx-textarea:focus{border-color:var(--dyx-brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--dyx-brand) 13%,transparent)}.dyx-textarea{min-height:84px;resize:vertical}.dyx-select[multiple]{min-height:112px;padding:6px}.dyx-select[multiple] option{padding:7px 8px;border-radius:6px}",
-  ".dyx-project-row{display:grid;grid-template-columns:1fr;gap:9px}.dyx-current{margin-top:12px;padding:12px;border-radius:10px;color:var(--dyx-muted);background:var(--dyx-panel2)}.dyx-current strong{color:var(--dyx-text)}",
-  ".dyx-notify-copy{margin:-4px 0 13px;color:var(--dyx-muted);font-size:12px}.dyx-notify-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,.65fr);gap:10px}.dyx-notify-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid var(--dyx-line);border-radius:10px;background:var(--dyx-panel2);cursor:pointer}.dyx-notify-toggle input{width:18px;height:18px;accent-color:var(--dyx-brand)}.dyx-notify-actions{margin-top:10px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}.dyx-notify-status{margin-top:11px;padding:10px 12px;border-radius:9px;color:var(--dyx-muted);background:var(--dyx-panel2);font-size:12px}.dyx-notify-status strong{color:var(--dyx-text)}",
+  ".dyx-project-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:center}.dyx-current{margin-top:12px;padding:12px;border-radius:10px;color:var(--dyx-muted);background:var(--dyx-panel2)}.dyx-current strong{color:var(--dyx-text)}",
+  ".dyx-notify-stats{margin:-4px 0 13px;color:var(--dyx-muted);font-size:12px}.dyx-notify-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,.65fr);gap:10px}.dyx-notify-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid var(--dyx-line);border-radius:10px;background:var(--dyx-panel2);cursor:pointer}.dyx-notify-toggle input{width:18px;height:18px;accent-color:var(--dyx-brand)}",
   ".dyx-tools{margin-bottom:13px;display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:end}",
   ".dyx-defect-filters{margin-bottom:13px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.dyx-filter-control{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:5px}.dyx-filter-clear{width:30px;min-height:38px;padding:0;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-muted);background:var(--dyx-panel);cursor:pointer;font-family:inherit;font-size:18px;line-height:1}.dyx-filter-clear:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-filter-clear[hidden]{visibility:hidden;display:block}",
   ".dyx-table-wrap{overflow:auto;border:1px solid var(--dyx-line);border-radius:11px}.dyx-table{width:100%;border-collapse:collapse;min-width:760px}.dyx-table th,.dyx-table td{padding:11px 12px;border-bottom:1px solid var(--dyx-line);text-align:left;vertical-align:middle}.dyx-table th{position:sticky;top:0;z-index:1;color:var(--dyx-muted);background:var(--dyx-panel2);font-size:12px;white-space:nowrap}.dyx-table tr:last-child td{border-bottom:0}.dyx-table tbody tr:hover{background:color-mix(in srgb,var(--dyx-brand) 5%,transparent)}",
@@ -67,7 +68,7 @@ var CSS = [
   ".dyx-toast-wrap{position:absolute;z-index:60;right:12px;top:12px;display:grid;gap:8px}.dyx-toast{max-width:340px;padding:10px 14px;border:1px solid var(--dyx-line);border-radius:10px;background:var(--dyx-panel);box-shadow:var(--dyx-shadow)}.dyx-toast.error{color:var(--dyx-danger)}",
   ".dyx-global-notice{position:fixed;z-index:2147483000;right:22px;top:22px;width:min(380px,calc(100vw - 44px));padding:14px 16px;border:1px solid var(--dyx-status-reopened-line);border-radius:12px;color:var(--dyx-text);background:color-mix(in srgb,var(--dyx-status-reopened) 7%,var(--dyx-panel));box-shadow:var(--dyx-shadow);font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;animation:dyx-slide-in .18s ease-out}.dyx-global-notice strong{display:block;margin-bottom:2px}.dyx-global-notice span{display:block;color:var(--dyx-muted);font-size:12px}.dyx-global-notice-actions{margin-top:11px;display:flex;justify-content:flex-end;gap:8px}.dyx-global-notice-actions button{min-height:30px;padding:5px 10px;border:1px solid var(--dyx-line);border-radius:8px;color:var(--dyx-text);background:var(--dyx-panel);cursor:pointer;font:inherit}.dyx-global-notice-actions button.primary{border-color:var(--dyx-brand);color:#fff;background:#2563eb}",
   ".dyx-loading{opacity:.65;pointer-events:none}.dyx-stale{margin-bottom:10px;padding:8px 11px;border-radius:9px;color:#a16207;background:rgba(245,158,11,.12)}",
-  "@container(max-width:430px){.dyx-main{padding:12px}.dyx-tools,.dyx-notify-grid{grid-template-columns:1fr}.dyx-title{display:block}.dyx-title>.dyx-btn,.dyx-title>.dyx-actions{margin-top:9px}.dyx-modal-body{padding:14px}.dyx-head{padding:0 12px}.dyx-head-copy strong{font-size:15px}.dyx-nav button{font-size:12px}.dyx-nav button span:first-child{display:none}.dyx-status-row{align-items:stretch;flex-direction:column}.dyx-status-row .dyx-field{min-width:0}}",
+  "@container(max-width:430px){.dyx-main{padding:12px}.dyx-tools,.dyx-notify-grid,.dyx-project-row{grid-template-columns:1fr}.dyx-title{display:block}.dyx-title>.dyx-btn,.dyx-title>.dyx-actions{margin-top:9px}.dyx-modal-body{padding:14px}.dyx-head{padding:0 12px}.dyx-head-copy strong{font-size:15px}.dyx-nav button{font-size:12px}.dyx-nav button span:first-child{display:none}.dyx-status-row{align-items:stretch;flex-direction:column}.dyx-status-row .dyx-field{min-width:0}}",
   "@media(max-width:760px){.dyx-preview-host{inset:0;width:100%;border-radius:0}}"
 ].join("");
 
@@ -314,28 +315,26 @@ function createDefectNotifier(options) {
     if (existing) existing.remove();
   }
 
-  function showInAppNotification(count, testOnly, items) {
+  function showInAppNotification(count, items) {
     clearInAppNotification();
     var notice = node("div", "dyx-global-notice");
     notice.setAttribute("role", "alert");
     notice.append(
-      node("strong", "", testOnly ? "缺陷内部通知测试" : "新增 " + count + " 个缺陷需修复"),
-      node("span", "", testOnly ? "内部通知显示正常；实际命中后会在这里显示新增数量。" : "状态为待确认或再次打开，请及时处理。")
+      node("strong", "", "新增 " + count + " 个缺陷需修复"),
+      node("span", "", "状态为待确认或再次打开，请及时处理。")
     );
     var actions = node("div", "dyx-global-notice-actions");
     var close = node("button", "", "关闭");
     close.type = "button";
     close.addEventListener("click", clearInAppNotification);
     actions.append(close);
-    if (!testOnly) {
-      var view = node("button", "primary", "查看缺陷");
-      view.type = "button";
-      view.addEventListener("click", function () {
-        clearInAppNotification();
-        if (typeof options.onOpen === "function") options.onOpen(items || []);
-      });
-      actions.append(view);
-    }
+    var view = node("button", "primary", "查看缺陷");
+    view.type = "button";
+    view.addEventListener("click", function () {
+      clearInAppNotification();
+      if (typeof options.onOpen === "function") options.onOpen(items || []);
+    });
+    actions.append(view);
     notice.append(actions);
     document.body.append(notice);
   }
@@ -369,7 +368,7 @@ function createDefectNotifier(options) {
           if (addedItems.length) {
             snapshot.lastAddedCount = addedItems.length;
             snapshot.unreadCount += addedItems.length;
-            showInAppNotification(addedItems.length, false, addedItems);
+            showInAppNotification(addedItems.length, addedItems);
             showSystemNotification(addedItems.length, addedItems);
           }
         }
@@ -440,8 +439,6 @@ function createDefectNotifier(options) {
     start: refresh,
     refresh: refresh,
     loadAssignees: loadAssignees,
-    testInAppNotification: function () { showInAppNotification(1, true); },
-    testSystemNotification: function () { return showSystemNotification(1, []); },
     markRead: markRead,
     subscribe: subscribe,
     snapshot: copySnapshot,
@@ -589,14 +586,15 @@ function createWorkspace(onRequestClose, notifier) {
         var avatar = node("div", "dyx-avatar", (account.name || "云").slice(0, 1));
         var grow = node("div", "dyx-grow");
         grow.append(node("strong", "", account.name), node("small", "", account.organizationId));
-        top.append(avatar, grow, node("span", "dyx-badge " + (account.hasToken ? "ok" : "fail"), account.hasToken ? "令牌已配置" : "缺少令牌"));
-        top.addEventListener("click", function () { chooseAccount(account.id); });
         var actions = node("div", "dyx-actions");
         actions.append(
           button("编辑", "", function () { openAccountForm(account); }),
           button("删除", "danger", function () { removeAccount(account); })
         );
-        card.append(top, actions);
+        actions.addEventListener("click", function (event) { event.stopPropagation(); });
+        top.append(avatar, grow, node("span", "dyx-badge " + (account.hasToken ? "ok" : "fail"), account.hasToken ? "令牌已配置" : "缺少令牌"), actions);
+        top.addEventListener("click", function () { chooseAccount(account.id); });
+        card.append(top);
         grid.append(card);
       });
       accountsCard.append(grid);
@@ -650,12 +648,29 @@ function createWorkspace(onRequestClose, notifier) {
     var noticeState = notifier ? notifier.snapshot() : { assignees: [], unreadCount: 0, lastCheckedAt: "", lastError: "" };
     var card = node("div", "dyx-card");
     var head = node("div", "dyx-card-head");
-    head.append(node("h3", "", "缺陷通知"), node("span", "dyx-badge " + (settings.enabled ? "ok" : ""), settings.enabled ? "已开启" : "未开启"));
-    card.append(head, node("p", "dyx-notify-copy", "定时检查“待确认、再次打开”的新增缺陷；首次查询只建立基线，不提示已有缺陷。"));
+    var headTitle = node("div", "dyx-card-title");
+    var refreshCheck = node("button", "dyx-icon-btn", "↻");
+    refreshCheck.type = "button";
+    refreshCheck.setAttribute("aria-label", "刷新缺陷检查");
+    refreshCheck.title = "立即刷新一次缺陷检查";
+    headTitle.append(node("h3", "", "缺陷通知"), refreshCheck);
+    head.append(headTitle, node("span", "dyx-badge " + (settings.enabled ? "ok" : ""), settings.enabled ? "已开启" : "未开启"));
+    card.append(head);
     if (!account || !project) {
       card.append(empty(!account ? "请先选择账号" : "请先选择项目", "通知配置按账号和项目分别保存。"));
       section.append(card);
       return;
+    }
+    if (settings.enabled) {
+      var scoped = notifier && noticeState.accountId === account.id && noticeState.projectId === project.id;
+      var stats = [];
+      if (scoped && noticeState.lastCheckedAt) {
+        stats.push("当前 " + noticeState.lastResultCount + " 条未处理", "更新时间 " + formatDate(noticeState.lastCheckedAt));
+        if (noticeState.lastError) stats.push("检查失败：" + noticeState.lastError);
+      } else {
+        stats.push(scoped && noticeState.lastError ? "检查失败：" + noticeState.lastError : "尚未检查，可点击标题旁按钮刷新");
+      }
+      card.append(node("div", "dyx-notify-stats", stats.join(" · ")));
     }
 
     var toggle = input("checkbox");
@@ -718,49 +733,13 @@ function createWorkspace(onRequestClose, notifier) {
     var grid = node("div", "dyx-notify-grid");
     grid.append(field("负责人（不选择则不限制）", assignee), field("查询间隔", interval));
     card.append(toggleWrap, grid);
-    var notifyActions = node("div", "dyx-notify-actions");
-    var testNotice = button("测试内部通知", "", function () { if (notifier) notifier.testInAppNotification(); });
-    var testWindowsNotice = button("测试 Windows 通知", "", function () {
+    refreshCheck.disabled = !settings.enabled || !notifier;
+    refreshCheck.addEventListener("click", function () {
       if (!notifier) return;
-      testWindowsNotice.disabled = true;
-      notifier.testSystemNotification().then(function (latest) {
-        toast("Windows 通知调用：" + latest.lastWindowsStatus);
-      }).finally(function () { testWindowsNotice.disabled = false; });
+      refreshCheck.disabled = true;
+      Promise.resolve(notifier.refresh()).catch(function (error) { toast(error.message, true); })
+        .finally(function () { refreshCheck.disabled = false; });
     });
-    var checkNow = button("立即检查", "", function () {
-      checkNow.disabled = true;
-      Promise.resolve(notifier && notifier.refresh()).then(function (value) {
-        var latest = value || notifier.snapshot();
-        toast("检查完成：当前命中 " + latest.lastResultCount + " 条，本轮新增 " + latest.lastAddedCount + " 条");
-      }).catch(function (error) { toast(error.message, true); }).finally(function () { checkNow.disabled = false; });
-    });
-    var openNotificationSettings = button("打开 Windows 通知设置", "", function () {
-      openNotificationSettings.disabled = true;
-      rpc("system.notification.settings.open", {}).then(function (result) {
-        if (!result || !result.accepted) throw new Error("当前系统不支持打开 Windows 通知设置");
-        toast("已打开 Windows 通知设置，请检查 Harness 的通知横幅及勿扰模式");
-      }).catch(function (error) { toast(error.message, true); })
-        .finally(function () { openNotificationSettings.disabled = false; });
-    });
-    checkNow.disabled = !settings.enabled;
-    notifyActions.append(testNotice, testWindowsNotice, openNotificationSettings, checkNow);
-    card.append(notifyActions);
-    var status = node("div", "dyx-notify-status");
-    if (settings.enabled) {
-      status.append(node("strong", "", "正在监控"), document.createTextNode(" · 每 " + settings.intervalMinutes + " 分钟检查一次"));
-      if (noticeState.unreadCount) status.append(document.createTextNode(" · 本次运行新增 " + noticeState.unreadCount + " 条"));
-      if (noticeState.lastCheckedAt) status.append(document.createTextNode(" · 最近检查 " + formatDate(noticeState.lastCheckedAt)));
-      status.append(node("div", "dyx-muted", "最近结果：两次查询合并 " + noticeState.lastResultCount + " 条，本轮新增 " + noticeState.lastAddedCount + " 条"));
-      var permissionText = window.__dsh_native_notification_bridge__ ? "Harness 桥已授权（没有网页授权弹窗）" : !("Notification" in window) ? "不支持" : window.Notification.permission === "granted" ? "已授权" : window.Notification.permission === "denied" ? "已拒绝" : "待授权";
-      status.append(node("div", "dyx-muted", "通知权限：" + permissionText));
-      status.append(node("div", "dyx-muted", "通知通道：" + (window.__dsh_native_notification_bridge__ ? "Harness 原生桥 + Windows 桌面提醒" : "Windows 后端 / Web 兜底")));
-      status.append(node("div", "dyx-muted", "Windows 最近调用：" + (noticeState.lastWindowsStatus || "尚未触发")));
-      if (window.__dsh_native_notification_bridge__) status.append(node("div", "dyx-muted", "提示：宿主授权只代表允许调用；通知横幅、勿扰模式仍由 Windows 控制。"));
-      if (noticeState.lastError) status.append(node("div", "dyx-muted", "最近检查失败：" + noticeState.lastError));
-    } else {
-      status.textContent = "开启后即刻建立当前缺陷基线，随后仅提醒本次运行中新出现的 ID。";
-    }
-    card.append(status);
     section.append(card);
 
     var scope = account.id + ":" + project.id;

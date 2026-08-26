@@ -55,23 +55,16 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(source, /已提交给 Windows 原生通知/);
   assert.match(source, /__dsh_native_notification_bridge__/);
   assert.match(source, /requireInteraction: true/);
-  assert.match(source, /Harness 桥已授权（没有网页授权弹窗）/);
-  assert.match(source, /system\.notification\.settings\.open/);
-  assert.match(source, /打开 Windows 通知设置/);
-  assert.match(source, /Harness 原生桥 \+ Windows 桌面提醒/);
-  assert.match(source, /Windows 桌面提醒已启动/);
   assert.match(source, /Date\.now\(\)/);
-  assert.match(source, /首次查询只建立基线/);
   assert.match(source, /新增 " \+ count \+ " 个缺陷需修复/);
   assert.match(source, /dyx-sidebar-trigger-count/);
   assert.match(source, /dyx-global-notice/);
   assert.match(source, /var addedIds = ids\.filter/);
   assert.match(source, /seenByScope\.set\(scope, new Set\(ids\)\)/);
-  assert.match(source, /测试内部通知/);
-  assert.match(source, /测试 Windows 通知/);
-  assert.match(source, /立即检查/);
-  assert.match(source, /最近结果：两次查询合并/);
-  assert.match(source, /Windows 最近调用/);
+  assert.match(source, /dyx-card-title/);
+  assert.match(source, /刷新缺陷检查/);
+  assert.match(source, /dyx-notify-stats/);
+  assert.match(source, /当前 " \+ noticeState\.lastResultCount \+ " 条未处理/);
   assert.match(source, /lastWindowsStatus/);
   assert.match(source, /options\.onOpen\(items \|\| \[\]\)/);
   assert.match(source, /function openNotifiedDefects/);
@@ -137,19 +130,19 @@ test("Windows notification helper starts a hidden native notifier with safe text
     }
   });
   const result = await promise;
-  assert.deepEqual(result, { supported: true, accepted: true, channel: "windows-desktop-window" });
+  assert.deepEqual(result, { supported: true, accepted: true, channel: "windows-toast" });
   assert.equal(invocation.command, "powershell.exe");
   assert.equal(invocation.options.windowsHide, true);
-  assert.equal(invocation.options.detached, true);
+  assert.notEqual(invocation.options.detached, true);
+  assert.equal(invocation.options.stdio, "ignore");
   assert.equal(invocation.options.env.DYX_NOTIFICATION_BODY, "新增 1 个缺陷需修复");
   assert.match(invocation.options.env.DYX_NOTIFICATION_TAG, /^dyx-/);
   const script = Buffer.from(invocation.args.at(-1), "base64").toString("utf16le");
   assert.match(script, /ToastNotificationManager/);
   assert.match(script, /scenario="urgent"/);
   assert.match(script, /io\.github\.hairyf\.deepseek-harness-desktop/);
-  assert.match(script, /System\.Windows\.Forms\.Form/);
-  assert.match(script, /System\.Windows\.Forms\.MessageBox/);
-  assert.match(script, /打开 Harness/);
+  assert.match(script, /ToastNotifier\(\$appId\)\.Show\(\$toast\)/);
+  assert.doesNotMatch(script, /System\.Windows\.Forms/);
   assert.equal(unrefCalled, true);
   assert.deepEqual(await showWindowsNotification("title", "body", { platform: "linux" }), {
     supported: false,
