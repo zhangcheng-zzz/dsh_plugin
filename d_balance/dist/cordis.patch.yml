@@ -1,8 +1,0 @@
-# dsh-balance: DeepSeek 余额查询插件
-#
-# 该 patch 在打包的 bundle 之后应用，把本插件的 Host 半挂进组合。
-# dsh plugin 会通过 dsh.bundle.patch 自动应用本文件。
-
-- insert:
-    - id: dsh-balance
-      name: 'dsh-balance'
