@@ -19,10 +19,10 @@ DeepSeek Harness 通用插件开发仓库。
 - 使用 Cordis `inject` 声明必需服务，并通过 `ctx.inject()` 处理可选 Web 服务。
 - 不携带或安装 Harness 核心包副本。
 
-安装：
+在仓库根目录安装（`-w` 必须保留，原因见[d_yunxiao 安装说明](./d_yunxiao/README.md#安装与更新)）：
 
 ```powershell
-dsh plugin --profile web add ./d_balance
+dsh plugin --profile web add -w ./d_balance
 ```
 
 验证：
@@ -37,10 +37,10 @@ dsh --profile web --dump-config
 
 `dsh-yunxiao` 使用单个 JSON 文本文件保存账号、当前项目、缺陷通知设置与有限缓存，不依赖数据库，也不接收 Webhook 或消息回调。Web 工作台提供缺陷、Windows 新缺陷提醒和流水线常用操作，Host 同时注册两个只读模型工具。
 
-安装：
+在仓库根目录安装：
 
 ```powershell
-dsh plugin --profile web add ./d_yunxiao
+dsh plugin --profile web add -w ./d_yunxiao
 ```
 
-详细说明见 [d_yunxiao/README.md](./d_yunxiao/README.md)。
+详细的安装、更新与卸载步骤见 [d_yunxiao/README.md](./d_yunxiao/README.md)。

@@ -88,11 +88,16 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(source, /cache: "no-store"/);
   assert.match(source, /dateValue\(right\.gmtCreate \|\| right\.gmtModified\) - dateValue\(left\.gmtCreate \|\| left\.gmtModified\)/);
   const listStatus = source.slice(source.indexOf("function saveListStatus"), source.indexOf("function pager"));
-  assert.match(listStatus, /loadDefects\(\)/);
+  assert.match(listStatus, /reloadDefectsSoon\(\)/);
+  assert.match(source, /function reloadDefectsSoon/);
+  assert.doesNotMatch(source, /defectPendingSync|reconcileDefectPatches|defectRetryTimer/);
+  assert.match(source, /setCount\(value\.lastResultCount\)/);
+  assert.match(source, /当前 " \+ count \+ " 条未处理缺陷/);
+  assert.doesNotMatch(source, /var bridgeStatus = showWebNotification/);
   const detailStatusStart = source.indexOf("function renderDefectDetail");
   const detailStatus = source.slice(detailStatusStart, source.indexOf("var meta = node", detailStatusStart));
   assert.match(detailStatus, /select\.addEventListener\("change"/);
-  assert.match(detailStatus, /loadDefects\(\)/);
+  assert.match(detailStatus, /reloadDefectsSoon\(\)/);
   assert.doesNotMatch(detailStatus, /保存状态/);
   assert.match(detailStatus, /defect\.members/);
   assert.match(detailStatus, /defect\.assignee\.update/);

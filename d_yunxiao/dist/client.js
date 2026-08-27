@@ -277,17 +277,17 @@ function createDefectNotifier(options) {
     emit();
     var tag = "dyx-defect-" + Date.now();
     if (window.__dsh_native_notification_bridge__) {
-      var bridgeStatus = showWebNotification(count, items, tag);
+      // 桌面端只提交一条原生 Toast；再发 Web Notification 会让 Windows 多弹一条重复横幅
       return rpc("system.notification.show", {
         title: "云效缺陷提醒",
         body: "新增 " + count + " 个缺陷需修复",
         tag: tag
       }).then(function (result) {
         snapshot.lastWindowsStatus = result && result.accepted
-          ? "Harness 桥已提交；Windows 桌面提醒已启动"
-          : bridgeStatus + "；Windows 桌面提醒不可用";
+          ? "Harness 桌面提醒已提交"
+          : "Harness 桌面提醒不可用";
       }).catch(function (error) {
-        snapshot.lastWindowsStatus = bridgeStatus + "；Windows 桌面提醒失败（" + (error instanceof Error ? error.message : String(error)) + "）";
+        snapshot.lastWindowsStatus = "Harness 桌面提醒失败（" + (error instanceof Error ? error.message : String(error)) + "）";
       }).then(function () {
         emit();
         return copySnapshot();
@@ -981,7 +981,7 @@ function createWorkspace(onRequestClose, notifier) {
       mergeDefectOptions([updated], state.defectStatuses[item.id]);
       fillListStatusSelect(select, item);
       toast("缺陷状态已更新");
-      loadDefects();
+      reloadDefectsSoon();
     }).catch(function (error) {
       select.value = previousStatusId || "";
       applyDefectStatusTone(select, item.statusName);
@@ -1001,6 +1001,14 @@ function createWorkspace(onRequestClose, notifier) {
     prev.disabled = pageData.page <= 1; next.disabled = pageData.page >= pages;
     wrap.append(prev, node("span", "", "第 " + pageData.page + " / " + pages + " 页 · 共 " + (pageData.total || 0) + " 条"), next);
     return wrap;
+  }
+
+  // 云效 workitems:search 是搜索索引，修改后立即查询可能返回旧值；
+  // 修改成功返回后等半秒再刷新，避开索引延迟。
+  function reloadDefectsSoon() {
+    setTimeout(function () {
+      if (state.tab === "defects" && selectedProject()) loadDefects();
+    }, 500);
   }
 
   function loadDefects() {
@@ -1068,7 +1076,7 @@ function createWorkspace(onRequestClose, notifier) {
         var listed = state.defects.items.find(function (entry) { return entry.id === updated.id; });
         if (listed) Object.assign(listed, updated);
         toast("缺陷状态已更新");
-        loadDefects();
+        reloadDefectsSoon();
       }).catch(function (error) {
         select.value = previousStatusId || "";
         applyDefectStatusTone(select, item.statusName);
@@ -1127,7 +1135,7 @@ function createWorkspace(onRequestClose, notifier) {
         var listed = state.defects.items.find(function (entry) { return entry.id === updated.id; });
         if (listed) Object.assign(listed, updated);
         toast("负责人已更新为" + (updated.assignedToName || updated.assignedToId));
-        loadDefects();
+        reloadDefectsSoon();
       }).catch(function (error) {
         fillDetailAssignee(assigneeSelect);
         toast(error.message, true);
@@ -1623,11 +1631,11 @@ function apply(ctx) {
 
   function SidebarTrigger(props) {
     var wide = Boolean(props && props.wide);
-    var countState = ReactRuntime.useState(notifier.snapshot().unreadCount);
+    var countState = ReactRuntime.useState(notifier.snapshot().lastResultCount);
     var count = countState[0];
     var setCount = countState[1];
     ReactRuntime.useEffect(function () {
-      return notifier.subscribe(function (value) { setCount(value.unreadCount); });
+      return notifier.subscribe(function (value) { setCount(value.lastResultCount); });
     }, []);
     return ReactRuntime.createElement("button", {
       type: "button",
@@ -1639,7 +1647,7 @@ function apply(ctx) {
     },
     ReactRuntime.createElement("span", { className: "dyx-sidebar-trigger-mark", "aria-hidden": "true" }, "云"),
     wide ? ReactRuntime.createElement("span", null, "云效工作台") : null,
-    count ? ReactRuntime.createElement("span", { className: "dyx-sidebar-trigger-count", "aria-label": "新增 " + count + " 个缺陷" }, count > 99 ? "99+" : String(count)) : null);
+    count ? ReactRuntime.createElement("span", { className: "dyx-sidebar-trigger-count", "aria-label": "当前 " + count + " 条未处理缺陷" }, count > 99 ? "99+" : String(count)) : null);
   }
 
   ctx.slots.inject("sidebar.footer.action", function () { return ctx.slots.register({
