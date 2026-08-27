@@ -501,6 +501,30 @@ function createApiClient(config) {
     return mapDefect(projectId, latest.payload);
   }
 
+  async function updateDefectAssignee(account, projectId, defectId, assignedToId) {
+    const api = paths(account);
+    const itemPath = `${api.workitems}/${encodeURIComponent(defectId)}`;
+    await request(account, itemPath, { method: "PUT", body: { assignedTo: assignedToId } });
+    const latest = await request(account, itemPath);
+    if (!latest.payload || typeof latest.payload !== "object") throw new YunxiaoError("负责人已提交，但读取最新缺陷失败");
+    return mapDefect(projectId, latest.payload);
+  }
+
+  async function listProjectMembers(account, projectId) {
+    if (!cleanText(projectId, 128)) throw new YunxiaoError("请先选择项目", 422);
+    const api = paths(account);
+    const membersPath = `${api.projex}/projects/${encodeURIComponent(projectId)}/members`;
+    const response = await request(account, membersPath);
+    if (!Array.isArray(response.payload)) throw new YunxiaoError("云效项目成员接口返回格式异常");
+    const byId = new Map();
+    for (const member of response.payload.filter((item) => item && typeof item === "object")) {
+      const idValue = cleanText(member.userId || member.id, 128);
+      if (!idValue || byId.has(idValue)) continue;
+      byId.set(idValue, { id: idValue, name: cleanText(member.userName || member.name || member.displayName, 255) || idValue });
+    }
+    return [...byId.values()].sort((left, right) => left.name.localeCompare(right.name, "zh-CN"));
+  }
+
   async function createDefectComment(account, projectId, defectId, content) {
     const api = paths(account);
     const value = cleanTextPreserve(content, 10_000).trim();
@@ -664,6 +688,8 @@ function createApiClient(config) {
     getDefectStatuses,
     resolveNotificationStatuses,
     updateDefectStatus,
+    updateDefectAssignee,
+    listProjectMembers,
     createDefectComment,
     listPipelines,
     getPipeline,
@@ -723,6 +749,7 @@ function mapDefect(projectId, item) {
     workitemType: displayName(item.workitemType) || "缺陷",
     assignedToId: cleanText(item.assignedTo?.id, 128),
     assignedToName: displayName(item.assignedTo),
+    modifierName: displayName(item.modifier),
     creatorName: displayName(item.creator),
     sprintName: displayName(item.sprint),
     priority: customDisplay(item, ["priority", "优先级"]),
@@ -1093,6 +1120,17 @@ function createRpc(store, api, systemNotifier = showWindowsNotification) {
         const statusId = cleanText(args.statusId, 128);
         if (!defectId || !statusId) throw new YunxiaoError("缺陷 ID 和状态 ID 不能为空", 422);
         return api.updateDefectStatus(account, projectId, defectId, statusId);
+      }
+      case "defect.assignee.update": {
+        const { account, projectId } = await accountAndProject(args);
+        const defectId = cleanText(args.defectId, 128);
+        const assignedToId = cleanText(args.assignedToId, 128);
+        if (!defectId || !assignedToId) throw new YunxiaoError("缺陷 ID 和负责人 ID 不能为空", 422);
+        return api.updateDefectAssignee(account, projectId, defectId, assignedToId);
+      }
+      case "defect.members": {
+        const { account, projectId } = await accountAndProject(args);
+        return api.listProjectMembers(account, projectId);
       }
       case "defect.comment.create": {
         const { account, projectId } = await accountAndProject(args);

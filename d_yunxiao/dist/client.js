@@ -502,6 +502,9 @@ function createWorkspace(onRequestClose, notifier) {
     defectStatuses: {},
     defectStatusLoading: {},
     defectStatusSaving: {},
+    defectMembers: [],
+    defectMembersScope: "@:",
+    defectMembersLoading: false,
     pipelines: { items: [], total: 0, page: 1, pageSize: PAGE_SIZE },
     pipelineKeyword: "",
     open: false
@@ -532,6 +535,12 @@ function createWorkspace(onRequestClose, notifier) {
       accountId: account && account.id || "",
       projectId: project && project.id || ""
     }, extra || {});
+  }
+
+  function projectScope() {
+    var account = selectedAccount();
+    var project = selectedProject();
+    return (account && account.id || "") + ":" + (project && project.id || "");
   }
 
   function updateSubtitle() {
@@ -909,7 +918,7 @@ function createWorkspace(onRequestClose, notifier) {
     return wrap;
   }
 
-  function mergeDefectOptions(items, statuses) {
+  function mergeDefectOptions(items, statuses, members) {
     var statusMap = new Map(state.defectStatusOptions.map(function (item) { return [item.id, item]; }));
     var assigneeMap = new Map(state.defectAssigneeOptions.map(function (item) { return [item.id, item]; }));
     (items || []).forEach(function (item) {
@@ -917,6 +926,7 @@ function createWorkspace(onRequestClose, notifier) {
       if (item.assignedToId && item.assignedToName) assigneeMap.set(item.assignedToId, { id: item.assignedToId, name: item.assignedToName });
     });
     (statuses || []).forEach(function (item) { if (item.id && item.name) statusMap.set(item.id, item); });
+    (members || []).forEach(function (item) { if (item.id && item.name) assigneeMap.set(item.id, item); });
     state.defectStatusOptions = Array.from(statusMap.values());
     state.defectAssigneeOptions = Array.from(assigneeMap.values());
     if (defectStatusFilterControl && defectStatusFilterControl.isConnected) {
@@ -1067,12 +1077,80 @@ function createWorkspace(onRequestClose, notifier) {
         select.disabled = !detail.statuses || !detail.statuses.length;
       });
     });
-    statusRow.append(field("状态", select));
+    function fillDetailAssignee(assigneeSelect) {
+      var entries = state.defectMembers.slice();
+      if (item.assignedToId && !entries.some(function (entry) { return entry.id === item.assignedToId; })) {
+        entries.unshift({ id: item.assignedToId, name: item.assignedToName || item.assignedToId });
+      }
+      assigneeSelect.textContent = "";
+      if (!entries.length) {
+        var none = node("option", "", "未分配");
+        none.value = "";
+        assigneeSelect.append(none);
+      } else {
+        entries.forEach(function (entry) { var option = node("option", "", entry.name); option.value = entry.id; assigneeSelect.append(option); });
+      }
+      if (!item.assignedToId) {
+        var unassigned = node("option", "", "未分配");
+        unassigned.value = "";
+        assigneeSelect.insertBefore(unassigned, assigneeSelect.firstChild);
+      }
+      assigneeSelect.value = item.assignedToId || "";
+    }
+    function loadDetailMembers(assigneeSelect) {
+      if (state.defectMembersLoading) return;
+      if (state.defectMembersScope === projectScope() && state.defectMembers.length) return;
+      state.defectMembersLoading = true;
+      rpc("defect.members", rpcArgs({})).then(function (members) {
+        state.defectMembers = members || [];
+        state.defectMembersScope = projectScope();
+        mergeDefectOptions([], [], state.defectMembers);
+        fillDetailAssignee(assigneeSelect);
+      }).catch(function (error) { toast(error.message, true); }).finally(function () {
+        state.defectMembersLoading = false;
+      });
+    }
+    var assigneeSelect = node("select", "dyx-select");
+    assigneeSelect.setAttribute("aria-label", "修改 " + (item.serialNumber || "缺陷") + " 负责人");
+    fillDetailAssignee(assigneeSelect);
+    assigneeSelect.addEventListener("pointerdown", function () { loadDetailMembers(assigneeSelect); });
+    assigneeSelect.addEventListener("focus", function () { loadDetailMembers(assigneeSelect); });
+    assigneeSelect.addEventListener("change", function () {
+      var assignedToId = assigneeSelect.value;
+      if (!assignedToId || assignedToId === item.assignedToId || state.defectMembersLoading) return;
+      assigneeSelect.disabled = true;
+      rpc("defect.assignee.update", rpcArgs({ defectId: item.id, assignedToId: assignedToId })).then(function (updated) {
+        detail.defect = updated; item = updated;
+        mergeDefectOptions([updated], []);
+        fillDetailAssignee(assigneeSelect);
+        syncMetaValues();
+        var listed = state.defects.items.find(function (entry) { return entry.id === updated.id; });
+        if (listed) Object.assign(listed, updated);
+        toast("负责人已更新为" + (updated.assignedToName || updated.assignedToId));
+        loadDefects();
+      }).catch(function (error) {
+        fillDetailAssignee(assigneeSelect);
+        toast(error.message, true);
+      }).finally(function () { assigneeSelect.disabled = false; });
+    });
+    statusRow.append(field("状态", select), field("负责人", assigneeSelect));
     dialog.body.append(statusRow);
     var meta = node("div", "dyx-meta");
-    [["负责人", item.assignedToName], ["创建人", item.creatorName], ["迭代", item.sprintName], ["优先级", item.priority || item.severity], ["更新时间", formatDate(item.gmtModified)]].forEach(function (pair) {
-      var box = node("div"); box.append(node("small", "", pair[0]), node("span", "", pair[1] || "-")); meta.append(box);
+    var metaSpans = {};
+    [["创建人", item.creatorName], ["最近修改人", item.modifierName], ["迭代", item.sprintName], ["优先级", item.priority || item.severity], ["更新时间", formatDate(item.gmtModified)]].forEach(function (pair) {
+      var box = node("div");
+      var valueSpan = node("span", "", pair[1] || "-");
+      box.append(node("small", "", pair[0]), valueSpan);
+      meta.append(box);
+      metaSpans[pair[0]] = valueSpan;
     });
+    function syncMetaValues() {
+      metaSpans["创建人"].textContent = item.creatorName || "-";
+      metaSpans["最近修改人"].textContent = item.modifierName || "-";
+      metaSpans["迭代"].textContent = item.sprintName || "-";
+      metaSpans["优先级"].textContent = item.priority || item.severity || "-";
+      metaSpans["更新时间"].textContent = formatDate(item.gmtModified);
+    }
     dialog.body.append(meta);
     if (detail.warning) dialog.body.append(node("div", "dyx-note", detail.warning));
     dialog.body.append(node("h3", "", "描述"));

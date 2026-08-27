@@ -94,6 +94,10 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(detailStatus, /select\.addEventListener\("change"/);
   assert.match(detailStatus, /loadDefects\(\)/);
   assert.doesNotMatch(detailStatus, /保存状态/);
+  assert.match(detailStatus, /defect\.members/);
+  assert.match(detailStatus, /defect\.assignee\.update/);
+  assert.match(detailStatus, /fillDetailAssignee\(assigneeSelect\)/);
+  assert.match(source.slice(detailStatusStart, source.indexOf("function renderPipelines")), /最近修改人/);
 });
 
 test("Windows notification settings helper opens the native settings page", async () => {
@@ -306,10 +310,12 @@ test("defect and pipeline normalizers preserve useful fields and mask secrets", 
     subject: "登录失败",
     status: { id: "doing", displayName: "处理中" },
     assignedTo: { id: "u1", name: "张三" },
+    modifier: { id: "u2", name: "李四" },
     customFieldValues: [{ fieldName: "优先级", values: [{ displayValue: "P1" }] }]
   });
   assert.equal(defect.statusName, "处理中");
   assert.equal(defect.assignedToName, "张三");
+  assert.equal(defect.modifierName, "李四");
   assert.equal(defect.priority, "P1");
 
   const run = mapPipelineRun({
@@ -467,6 +473,53 @@ test("API client reads workflow statuses without loading comments and updates li
   const updateCall = calls.find((item) => item.method === "PUT");
   assert.deepEqual(JSON.parse(updateCall.body), { status: "done" });
   assert.equal(updated.statusId, "done");
+});
+
+test("API client updates defect assignee and lists project members without duplicates", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  t.after(() => { globalThis.fetch = previousFetch; });
+  globalThis.fetch = async (url, options = {}) => {
+    const value = String(url);
+    const method = options.method || "GET";
+    calls.push({ url: value, method, body: options.body });
+    if (method === "PUT") {
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (value.endsWith("/members")) {
+      return new Response(JSON.stringify([
+        { roleId: "project.admin", roleName: "管理员", userId: "u2", userName: "李四" },
+        { roleId: "project.member", roleName: "开发", userId: "u2", userName: "李四" },
+        { roleId: "project.member", roleName: "开发", userId: "u1", userName: "张三" }
+      ]), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    const updated = calls.some((item) => item.method === "PUT");
+    return new Response(JSON.stringify({
+      id: "bug-1",
+      serialNumber: "BUG-1",
+      subject: "登录失败",
+      status: { id: "doing", displayName: "处理中" },
+      assignedTo: { id: updated ? "u2" : "u1", name: updated ? "李四" : "张三" },
+      modifier: { id: "me", name: "当前账号" }
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  const client = createApiClient({ apiBaseUrl: "https://openapi-rdc.aliyuncs.com", timeoutMs: 5000 });
+  const account = { organizationId: "org-1", token: "token" };
+
+  const updated = await client.updateDefectAssignee(account, "project-1", "bug/1", "u2");
+  const putCall = calls.find((item) => item.method === "PUT");
+  assert.match(putCall.url, /workitems\/bug%2F1$/);
+  assert.deepEqual(JSON.parse(putCall.body), { assignedTo: "u2" });
+  assert.equal(updated.assignedToId, "u2");
+  assert.equal(updated.modifierName, "当前账号");
+
+  await assert.rejects(() => client.listProjectMembers(account, ""), /请先选择项目/);
+  const members = await client.listProjectMembers(account, "project-1");
+  assert.match(calls.at(-1).url, /projects\/project-1\/members$/);
+  assert.deepEqual(members, [
+    { id: "u2", name: "李四" },
+    { id: "u1", name: "张三" }
+  ]);
 });
 
 test("API client creates a defect comment with the official work-item contract", async (t) => {
