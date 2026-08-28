@@ -253,6 +253,7 @@ test("RPC uses current account/project and falls back to persisted list cache", 
   let fail = false;
   let statusOptionFail = false;
   const createdComments = [];
+  const attachmentLinks = [];
   const defectQueries = [];
   const statusOptionQueries = [];
   const api = {
@@ -274,6 +275,10 @@ test("RPC uses current account/project and falls back to persisted list cache", 
     createDefectComment: async (_account, projectId, defectId, content) => {
       createdComments.push({ projectId, defectId, content });
       return { id: "comment-1", projectId, defectId };
+    },
+    getAttachmentLink: async (_account, projectId, defectId, fileId) => {
+      attachmentLinks.push({ projectId, defectId, fileId });
+      return { fileId, fileName: "接口响应日志.log", suffix: ".log", size: 20480, url: `https://oss.example.com/fresh-${fileId}` };
     },
     getPipeline: async () => ({}),
     listPipelineBranches: async () => [],
@@ -328,6 +333,12 @@ test("RPC uses current account/project and falls back to persisted list cache", 
   assert.equal(comment.id, "comment-1");
   assert.deepEqual(createdComments, [{ projectId: "p1", defectId: "bug-1", content: "请验证修复。" }]);
   await assert.rejects(() => rpc("defect.comment.create", { defectId: "bug-1", content: "   " }), /评论内容不能为空/);
+
+  const attachment = await rpc("defect.attachment.link", { defectId: "bug-1", fileId: "file-1" });
+  assert.equal(attachment.url, "https://oss.example.com/fresh-file-1");
+  assert.equal(attachment.fileName, "接口响应日志.log");
+  assert.deepEqual(attachmentLinks, [{ projectId: "p1", defectId: "bug-1", fileId: "file-1" }]);
+  await assert.rejects(() => rpc("defect.attachment.link", { defectId: "bug-1", fileId: "  " }), /附件 ID 不能为空/);
 
   fail = true;
   const cached = await rpc("defects.list", {});

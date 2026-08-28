@@ -7,7 +7,7 @@ try { ReactRuntime = require("react"); } catch (error) {}
 
 var STYLE_ID = "dsh-yunxiao-style";
 var ROOT_ID = "dsh-yunxiao-root";
-var PAGE_SIZE = 20;
+var PAGE_SIZE = 5;
 var PANEL_WIDTH_STORAGE_KEY = "dsh-yunxiao:panel-width";
 var DEFAULT_PANEL_WIDTH = 480;
 var MIN_PANEL_WIDTH = 380;
@@ -43,18 +43,18 @@ var CSS = [
   ".dyx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.dyx-account{padding:15px;border:1px solid var(--dyx-line);border-radius:12px;background:var(--dyx-panel2)}.dyx-account.active{border-color:var(--dyx-brand);box-shadow:inset 0 0 0 1px var(--dyx-brand)}",
   ".dyx-account-top{display:flex;gap:11px;align-items:center;cursor:pointer}.dyx-avatar{width:38px;height:38px;display:grid;place-items:center;flex:none;border-radius:11px;color:#fff;background:linear-gradient(135deg,#2563eb,#0f766e);font-weight:800}.dyx-grow{min-width:0;flex:1}.dyx-grow strong,.dyx-grow small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dyx-grow small{color:var(--dyx-muted)}",
   ".dyx-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.dyx-account-top .dyx-actions{flex:none}",
-  ".dyx-btn{min-height:34px;padding:7px 12px;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-text);background:var(--dyx-panel);cursor:pointer;font:inherit}.dyx-btn:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-btn.primary{border-color:var(--dyx-brand);color:#fff;background:#2563eb}.dyx-btn.danger{color:var(--dyx-danger)}.dyx-btn:disabled{opacity:.55;cursor:not-allowed}",
+  ".dyx-btn{min-height:34px;padding:7px 12px;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-text);background:var(--dyx-panel);cursor:pointer;font:inherit;white-space:nowrap}.dyx-btn:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-btn.primary{border-color:var(--dyx-brand);color:#fff;background:#2563eb}.dyx-btn.danger{color:var(--dyx-danger)}.dyx-btn:disabled{opacity:.55;cursor:not-allowed}",
   ".dyx-icon-btn{width:30px;min-height:30px;padding:0;border:1px solid var(--dyx-line);border-radius:8px;color:var(--dyx-muted);background:var(--dyx-panel);cursor:pointer;font:inherit;font-size:15px;line-height:1}.dyx-icon-btn:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-icon-btn:disabled{opacity:.55;cursor:not-allowed}",
   ".dyx-field{display:grid;gap:5px}.dyx-field label{color:var(--dyx-muted);font-size:12px}.dyx-input,.dyx-select,.dyx-textarea{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-text);background:var(--dyx-panel);outline:0;font:inherit}.dyx-input:focus,.dyx-select:focus,.dyx-textarea:focus{border-color:var(--dyx-brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--dyx-brand) 13%,transparent)}.dyx-textarea{min-height:84px;resize:vertical}.dyx-select[multiple]{min-height:112px;padding:6px}.dyx-select[multiple] option{padding:7px 8px;border-radius:6px}",
   ".dyx-project-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:center}.dyx-current{margin-top:12px;padding:12px;border-radius:10px;color:var(--dyx-muted);background:var(--dyx-panel2)}.dyx-current strong{color:var(--dyx-text)}",
   ".dyx-notify-stats{margin:-4px 0 13px;color:var(--dyx-muted);font-size:12px}.dyx-notify-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,.65fr);gap:10px}.dyx-notify-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid var(--dyx-line);border-radius:10px;background:var(--dyx-panel2);cursor:pointer}.dyx-notify-toggle input{width:18px;height:18px;accent-color:var(--dyx-brand)}",
-  ".dyx-tools{margin-bottom:13px;display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:end}",
-  ".dyx-defect-filters{margin-bottom:13px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.dyx-filter-control{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:5px}.dyx-filter-clear{width:30px;min-height:38px;padding:0;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-muted);background:var(--dyx-panel);cursor:pointer;font-family:inherit;font-size:18px;line-height:1}.dyx-filter-clear:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-filter-clear[hidden]{visibility:hidden;display:block}",
+  ".dyx-list-toolbar{margin-bottom:13px;display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap}.dyx-list-toolbar>.dyx-page{margin-top:0}.dyx-defect-filters{display:flex;gap:9px;min-width:0}.dyx-defect-filters .dyx-field{width:168px}.dyx-pipeline-filters{display:flex;align-items:end;gap:9px;min-width:0}.dyx-pipeline-filters .dyx-field{width:200px}.dyx-filter-control{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:5px}.dyx-filter-clear{width:30px;min-height:38px;padding:0;border:1px solid var(--dyx-line);border-radius:9px;color:var(--dyx-muted);background:var(--dyx-panel);cursor:pointer;font-family:inherit;font-size:18px;line-height:1}.dyx-filter-clear:hover{border-color:var(--dyx-brand);color:var(--dyx-brand)}.dyx-filter-clear[hidden]{visibility:hidden;display:block}",
   ".dyx-table-wrap{overflow:auto;border:1px solid var(--dyx-line);border-radius:11px}.dyx-table{width:100%;border-collapse:collapse;min-width:760px}.dyx-table th,.dyx-table td{padding:11px 12px;border-bottom:1px solid var(--dyx-line);text-align:left;vertical-align:middle}.dyx-table th{position:sticky;top:0;z-index:1;color:var(--dyx-muted);background:var(--dyx-panel2);font-size:12px;white-space:nowrap}.dyx-table tr:last-child td{border-bottom:0}.dyx-table tbody tr:hover{background:color-mix(in srgb,var(--dyx-brand) 5%,transparent)}",
   ".dyx-link{padding:0;border:0;color:var(--dyx-brand);background:transparent;cursor:pointer;font:inherit;text-align:left}.dyx-subject{max-width:480px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dyx-muted{color:var(--dyx-muted)}",
   ".dyx-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;color:var(--dyx-muted);background:var(--dyx-panel2);font-size:12px;white-space:nowrap}.dyx-badge.ok{color:#138a4b;background:rgba(34,197,94,.12)}.dyx-badge.run{color:#b77900;background:rgba(245,158,11,.14)}.dyx-badge.fail{color:var(--dyx-danger);background:rgba(239,68,68,.12)}",
-  ".dyx-page{margin-top:13px;display:flex;justify-content:flex-end;align-items:center;gap:9px;color:var(--dyx-muted)}",
+  ".dyx-page{margin-top:13px;display:flex;justify-content:flex-end;align-items:center;gap:9px;color:var(--dyx-muted)}.dyx-page span{white-space:nowrap}.dyx-btn-sm{min-height:28px;padding:4px 10px;font-size:12px}",
   ".dyx-empty{padding:48px 20px;text-align:center;color:var(--dyx-muted)}.dyx-empty strong{display:block;margin-bottom:5px;color:var(--dyx-text);font-size:16px}",
+  ".dyx-attachments{display:grid;gap:8px}.dyx-attachment{display:flex;align-items:center;gap:8px;min-width:0}.dyx-attachment-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dyx-attachment-size{flex:none;color:var(--dyx-muted);font-size:12px}.dyx-attachment .dyx-btn{flex:none}",
   ".dyx-drawer{position:absolute;inset:0;z-index:30;overflow:hidden;background:var(--dyx-bg);animation:dyx-slide-in .18s ease-out}@keyframes dyx-slide-in{from{transform:translateX(24px);opacity:.75}to{transform:none;opacity:1}}",
   ".dyx-modal{width:100%;height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden;background:var(--dyx-panel)}",
   ".dyx-modal-head,.dyx-modal-foot{padding:15px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}.dyx-modal-head{border-bottom:1px solid var(--dyx-line)}.dyx-modal-head h3{margin:0}.dyx-modal-foot{border-top:1px solid var(--dyx-line);justify-content:flex-end}.dyx-modal-body{padding:18px;overflow:auto}.dyx-form{display:grid;gap:12px}.dyx-two{display:grid;grid-template-columns:1fr 1fr;gap:11px}",
@@ -63,12 +63,13 @@ var CSS = [
   ".dyx-comment-compose{margin-bottom:12px;padding:12px;border:1px solid var(--dyx-line);border-radius:11px;background:var(--dyx-panel2)}.dyx-comment-compose .dyx-textarea{min-height:92px;background:var(--dyx-panel)}.dyx-comment-compose-actions{margin-top:9px;display:flex;align-items:center;justify-content:space-between;gap:10px}.dyx-comment-compose-actions span{color:var(--dyx-muted);font-size:11px}.dyx-comments{display:grid;gap:10px}.dyx-comment{padding:12px;border:1px solid var(--dyx-line);border-radius:10px}.dyx-comment-head{display:flex;justify-content:space-between;margin-bottom:7px;color:var(--dyx-muted);font-size:12px}",
   ".dyx-status-row{display:flex;align-items:end;gap:8px}.dyx-status-row .dyx-field{min-width:180px}.dyx-note{padding:10px 12px;border-radius:9px;color:#a16207;background:rgba(245,158,11,.13)}",
   ".dyx-stage{margin:7px 0;padding:10px 12px;display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:10px;border:1px solid var(--dyx-line);border-radius:9px}.dyx-dot{width:9px;height:9px;border-radius:50%;background:#94a3b8}.dyx-dot.SUCCESS{background:#16a34a}.dyx-dot.RUNNING{background:#f59e0b}.dyx-dot.FAIL,.dyx-dot.FAILED{background:#dc2626}",
-  ".dyx-record-list{display:grid;gap:9px}.dyx-record{padding:12px;border:1px solid var(--dyx-line);border-radius:11px;background:var(--dyx-panel2)}.dyx-record.dyx-record-status-pending{border-color:var(--dyx-status-pending-line);background:color-mix(in srgb,var(--dyx-status-pending) 6%,var(--dyx-panel2))}.dyx-record.dyx-record-status-processing{border-color:var(--dyx-status-processing-line);background:color-mix(in srgb,var(--dyx-status-processing) 6%,var(--dyx-panel2))}.dyx-record.dyx-record-status-reopened{border-color:var(--dyx-status-reopened-line);background:color-mix(in srgb,var(--dyx-status-reopened) 6%,var(--dyx-panel2))}.dyx-record-head,.dyx-record-foot{display:flex;align-items:center;justify-content:space-between;gap:9px}.dyx-record-title{margin:9px 0;color:var(--dyx-text);font-size:14px;font-weight:650;line-height:1.45}.dyx-record-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--dyx-muted);font-size:12px}.dyx-record-foot{margin-top:10px;padding-top:9px;border-top:1px solid var(--dyx-line)}",
+  ".dyx-record-list{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}.dyx-record{padding:12px;border:1px solid var(--dyx-line);border-radius:11px;background:var(--dyx-panel2)}.dyx-record.dyx-record-status-pending{border-color:var(--dyx-status-pending-line);background:color-mix(in srgb,var(--dyx-status-pending) 6%,var(--dyx-panel2))}.dyx-record.dyx-record-status-processing{border-color:var(--dyx-status-processing-line);background:color-mix(in srgb,var(--dyx-status-processing) 6%,var(--dyx-panel2))}.dyx-record.dyx-record-status-reopened{border-color:var(--dyx-status-reopened-line);background:color-mix(in srgb,var(--dyx-status-reopened) 6%,var(--dyx-panel2))}.dyx-record-head,.dyx-record-foot{display:flex;align-items:center;justify-content:space-between;gap:9px}.dyx-record-title{margin:9px 0;color:var(--dyx-text);font-size:14px;font-weight:650;line-height:1.45}.dyx-record-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--dyx-muted);font-size:12px}.dyx-record-foot{margin-top:10px;padding-top:9px;border-top:1px solid var(--dyx-line)}",
+  ".dyx-defect-row{display:flex;flex-direction:column;gap:7px}.dyx-defect-row-meta{display:flex;align-items:center;gap:8px;min-width:0}.dyx-defect-row-meta .dyx-btn{margin-left:auto;flex:none}.dyx-defect-row-title{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;text-align:left}.dyx-defect-row-serial{flex:none;color:var(--dyx-muted);font-weight:600}.dyx-defect-row-subject{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dyx-defect-row-assignee{flex:0 1 160px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dyx-muted);font-size:12px}.dyx-defect-row-time{flex:none;color:var(--dyx-muted);font-size:12px;white-space:nowrap}.dyx-defect-row .dyx-inline-status{width:96px;flex:none}",
   ".dyx-inline-status{width:150px;min-height:32px;padding:5px 28px 5px 9px;font-size:12px}.dyx-status-pending{color:var(--dyx-status-pending);border-color:var(--dyx-status-pending-line);background:var(--dyx-status-pending-bg)}.dyx-status-processing{color:var(--dyx-status-processing);border-color:var(--dyx-status-processing-line);background:var(--dyx-status-processing-bg)}.dyx-status-reopened{color:var(--dyx-status-reopened);border-color:var(--dyx-status-reopened-line);background:var(--dyx-status-reopened-bg)}",
   ".dyx-toast-wrap{position:absolute;z-index:60;right:12px;top:12px;display:grid;gap:8px}.dyx-toast{max-width:340px;padding:10px 14px;border:1px solid var(--dyx-line);border-radius:10px;background:var(--dyx-panel);box-shadow:var(--dyx-shadow)}.dyx-toast.error{color:var(--dyx-danger)}",
   ".dyx-global-notice{position:fixed;z-index:2147483000;right:22px;top:22px;width:min(380px,calc(100vw - 44px));padding:14px 16px;border:1px solid var(--dyx-status-reopened-line);border-radius:12px;color:var(--dyx-text);background:color-mix(in srgb,var(--dyx-status-reopened) 7%,var(--dyx-panel));box-shadow:var(--dyx-shadow);font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;animation:dyx-slide-in .18s ease-out}.dyx-global-notice strong{display:block;margin-bottom:2px}.dyx-global-notice span{display:block;color:var(--dyx-muted);font-size:12px}.dyx-global-notice-actions{margin-top:11px;display:flex;justify-content:flex-end;gap:8px}.dyx-global-notice-actions button{min-height:30px;padding:5px 10px;border:1px solid var(--dyx-line);border-radius:8px;color:var(--dyx-text);background:var(--dyx-panel);cursor:pointer;font:inherit}.dyx-global-notice-actions button.primary{border-color:var(--dyx-brand);color:#fff;background:#2563eb}",
   ".dyx-loading{opacity:.65;pointer-events:none}.dyx-stale{margin-bottom:10px;padding:8px 11px;border-radius:9px;color:#a16207;background:rgba(245,158,11,.12)}",
-  "@container(max-width:430px){.dyx-main{padding:12px}.dyx-tools,.dyx-notify-grid,.dyx-project-row{grid-template-columns:1fr}.dyx-title{display:block}.dyx-title>.dyx-btn,.dyx-title>.dyx-actions{margin-top:9px}.dyx-modal-body{padding:14px}.dyx-head{padding:0 12px}.dyx-head-copy strong{font-size:15px}.dyx-nav button{font-size:12px}.dyx-nav button span:first-child{display:none}.dyx-status-row{align-items:stretch;flex-direction:column}.dyx-status-row .dyx-field{min-width:0}}",
+  "@container(max-width:430px){.dyx-main{padding:12px}.dyx-notify-grid,.dyx-project-row{grid-template-columns:1fr}.dyx-defect-filters .dyx-field{width:142px}.dyx-pipeline-filters .dyx-field{width:150px}.dyx-defect-row .dyx-inline-status{width:88px}.dyx-title{display:block}.dyx-title>.dyx-btn,.dyx-title>.dyx-actions{margin-top:9px}.dyx-modal-body{padding:14px}.dyx-head{padding:0 12px}.dyx-head-copy strong{font-size:15px}.dyx-nav button{font-size:12px}.dyx-nav button span:first-child{display:none}.dyx-status-row{align-items:stretch;flex-direction:column}.dyx-status-row .dyx-field{min-width:0}}",
   "@media(max-width:760px){.dyx-preview-host{inset:0;width:100%;border-radius:0}}"
 ].join("");
 
@@ -109,6 +110,14 @@ function formatDate(value) {
   if (value === null || value === undefined || value === "") return "-";
   var date = typeof value === "number" || /^\d{13}$/.test(String(value)) ? new Date(Number(value)) : new Date(value);
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+}
+
+function shortDateTime(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  var date = typeof value === "number" || /^\d{13}$/.test(String(value)) ? new Date(Number(value)) : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  var pad = function (part) { return (part < 10 ? "0" : "") + part; };
+  return pad(date.getMonth() + 1) + "-" + pad(date.getDate()) + " " + pad(date.getHours()) + ":" + pad(date.getMinutes());
 }
 
 function dateValue(value) {
@@ -887,11 +896,14 @@ function createWorkspace(onRequestClose, notifier) {
       return wrap;
     }
     tools.append(field("状态", filterWithClear(status, "statusName", "状态")), field("负责人", filterWithClear(assignee, "assignedToId", "负责人")));
-    card.append(tools);
+    function onPage(next) { state.defects.page = next; loadDefects(); }
+    var toolbar = node("div", "dyx-list-toolbar");
+    toolbar.append(tools, pager(state.defects, onPage));
+    card.append(toolbar);
     if (state.defects.stale) card.append(node("div", "dyx-stale", "云效暂时不可用，当前为 " + formatDate(state.defects.cachedAt) + " 的缓存。"));
     if (!state.defects.items.length) card.append(empty("暂无缺陷", "可调整关键词后重新查询。"));
     else card.append(defectTable(state.defects.items));
-    card.append(pager(state.defects, function (next) { state.defects.page = next; loadDefects(); }));
+    card.append(pager(state.defects, onPage));
     section.append(card);
     main.append(section);
   }
@@ -930,12 +942,12 @@ function createWorkspace(onRequestClose, notifier) {
     return ids;
   }
 
+  // 列表压缩为两行：标题独占一行超长省略，负责人、状态、创建时间与详情按钮同行。
   function defectTable(items) {
     var wrap = node("div", "dyx-record-list");
     items.forEach(function (item) {
-      var card = node("article", "dyx-record");
-      applyDefectRecordTone(card, item.statusName);
-      var head = node("div", "dyx-record-head");
+      var row = node("article", "dyx-record dyx-defect-row");
+      applyDefectRecordTone(row, item.statusName);
       var statusSelect = node("select", "dyx-select dyx-inline-status");
       statusSelect.setAttribute("aria-label", "修改 " + (item.serialNumber || "缺陷") + " 状态");
       fillListStatusSelect(statusSelect, item);
@@ -944,19 +956,23 @@ function createWorkspace(onRequestClose, notifier) {
       statusSelect.addEventListener("change", function () {
         var statusName = selectedOptionText(statusSelect);
         applyDefectStatusTone(statusSelect, statusName);
-        applyDefectRecordTone(card, statusName);
-        saveListStatus(item, statusSelect, card);
+        applyDefectRecordTone(row, statusName);
+        saveListStatus(item, statusSelect, row);
       });
-      head.append(node("strong", "", item.serialNumber || "缺陷"), statusSelect);
-      var title = node("button", "dyx-link dyx-record-title", item.subject || "未命名缺陷");
+      var titleText = (item.serialNumber ? item.serialNumber + " " : "") + (item.subject || "未命名缺陷");
+      var title = node("button", "dyx-link dyx-defect-row-title");
       title.type = "button";
+      title.title = titleText;
+      title.append(node("span", "dyx-defect-row-serial", item.serialNumber || "缺陷"), node("span", "dyx-defect-row-subject", item.subject || "未命名缺陷"));
       title.addEventListener("click", function () { openDefect(item); });
-      var meta = node("div", "dyx-record-meta");
-      meta.append(node("span", "", "负责人 " + (item.assignedToName || "未分配")), node("span", "", "·"), node("span", "", item.priority || item.severity || "未定级"));
-      var foot = node("div", "dyx-record-foot");
-      foot.append(node("span", "dyx-muted", "创建 " + formatDate(item.gmtCreate || item.gmtModified)), button("查看详情", "", function () { openDefect(item); }));
-      card.append(head, title, meta, foot);
-      wrap.append(card);
+      var assignee = node("span", "dyx-defect-row-assignee", item.assignedToName || "未分配");
+      assignee.title = "负责人 " + (item.assignedToName || "未分配");
+      var time = node("span", "dyx-defect-row-time", shortDateTime(item.gmtCreate || item.gmtModified));
+      time.title = "创建 " + formatDate(item.gmtCreate || item.gmtModified);
+      var meta = node("div", "dyx-defect-row-meta");
+      meta.append(assignee, statusSelect, time, button("详情", "dyx-btn-sm", function () { openDefect(item); }));
+      row.append(title, meta);
+      wrap.append(row);
     });
     return wrap;
   }
@@ -968,8 +984,8 @@ function createWorkspace(onRequestClose, notifier) {
       if (item.statusId && item.statusName) statusMap.set(item.statusId, { id: item.statusId, name: item.statusName });
       if (item.assignedToId && item.assignedToName) assigneeMap.set(item.assignedToId, { id: item.assignedToId, name: item.assignedToName });
     });
-    (statuses || []).forEach(function (item) { if (item.id && item.name) statusMap.set(item.id, item); });
-    (members || []).forEach(function (item) { if (item.id && item.name) assigneeMap.set(item.id, item); });
+    (Array.isArray(statuses) ? statuses : []).forEach(function (item) { if (item.id && item.name) statusMap.set(item.id, item); });
+    (Array.isArray(members) ? members : []).forEach(function (item) { if (item.id && item.name) assigneeMap.set(item.id, item); });
     state.defectStatusOptions = Array.from(statusMap.values());
     state.defectAssigneeOptions = Array.from(assigneeMap.values());
     if (defectStatusFilterControl && defectStatusFilterControl.isConnected) {
@@ -1067,10 +1083,10 @@ function createWorkspace(onRequestClose, notifier) {
     rpc("defect.members", rpcArgs({})).then(function (members) {
       if (projectScope() !== scope) return;
       if (state.defectMembersScope !== projectScope()) {
-        state.defectMembers = members || [];
+        state.defectMembers = Array.isArray(members) ? members : [];
         state.defectMembersScope = projectScope();
       }
-      mergeDefectOptions([], [], members);
+      mergeDefectOptions([], [], Array.isArray(members) ? members : []);
     }).catch(function () {});
     rpc("defect.statusOptions", rpcArgs({})).then(function (result) {
       if (projectScope() !== scope) return;
@@ -1233,11 +1249,11 @@ function createWorkspace(onRequestClose, notifier) {
     dialog.body.append(meta);
     if (detail.warning) dialog.body.append(node("div", "dyx-note", detail.warning));
     dialog.body.append(node("h3", "", "描述"));
-    var rich = node("div", "dyx-rich"); renderRich(rich, detail.description || "", detail.descriptionFormat || "RICHTEXT", detail.attachments || []); dialog.body.append(rich);
+    var rich = node("div", "dyx-rich"); renderRich(rich, detail.description || "", detail.descriptionFormat || "RICHTEXT", detail.attachments || [], item.id); dialog.body.append(rich);
     if (detail.attachments && detail.attachments.length) {
       dialog.body.append(node("h3", "", "附件"));
-      var files = node("div", "dyx-actions");
-      detail.attachments.forEach(function (file) { var link = node("a", "dyx-btn", file.fileName); link.href = safeUrl(file.url); link.target = "_blank"; link.rel = "noopener noreferrer"; files.append(link); });
+      var files = node("div", "dyx-attachments");
+      detail.attachments.forEach(function (file) { files.append(attachmentRow(item, file)); });
       dialog.body.append(files);
     }
     var commentCount = detail.comments && detail.comments.length || 0;
@@ -1284,12 +1300,46 @@ function createWorkspace(onRequestClose, notifier) {
       detail.comments.forEach(function (comment) {
         var card = node("div", "dyx-comment");
         var head = node("div", "dyx-comment-head"); head.append(node("strong", "", comment.userName || "匿名"), node("span", "", formatDate(comment.gmtCreate)));
-        var content = node("div", "dyx-rich"); renderRich(content, comment.content || "", comment.contentFormat || "RICHTEXT", detail.attachments || []);
+        var content = node("div", "dyx-rich"); renderRich(content, comment.content || "", comment.contentFormat || "RICHTEXT", detail.attachments || [], item.id);
         card.append(head, content); comments.append(card);
       });
       dialog.body.append(comments);
     } else dialog.body.append(empty("暂无评论", "发布第一条评论。"));
     dialog.foot.textContent = ""; dialog.foot.append(button("关闭", "", dialog.close));
+  }
+
+  // 云效附件直链具有时效性：点击时实时换取新地址，失败再退回详情里的快照地址。
+  function attachmentRow(defect, file) {
+    var row = node("div", "dyx-attachment");
+    var size = formatBytes(file.size);
+    var label = node("span", "dyx-attachment-name", file.fileName || "附件");
+    label.title = (file.fileName || "附件") + (size ? "（" + size + "）" : "");
+    row.append(label);
+    if (size) row.append(node("span", "dyx-attachment-size", size));
+    row.append(button("打开", "dyx-btn-sm", function () { openAttachment(defect, file, "open"); }));
+    row.append(button("下载", "dyx-btn-sm", function () { openAttachment(defect, file, "download"); }));
+    return row;
+  }
+
+  function openAttachment(defect, file, mode) {
+    var fallback = safeUrl(file.url);
+    function use(url) {
+      if (mode === "download") downloadFile(url, file.fileName);
+      else window.open(url, "_blank", "noopener");
+    }
+    if (!file.fileId) {
+      if (fallback) use(fallback);
+      else toast("该附件缺少下载地址", true);
+      return;
+    }
+    rpc("defect.attachment.link", rpcArgs({ defectId: defect.id, fileId: file.fileId })).then(function (result) {
+      var url = safeUrl(result && result.url);
+      if (!url) throw new Error("云效未返回可用的附件下载地址");
+      use(url);
+    }).catch(function (error) {
+      if (fallback) { use(fallback); return; }
+      toast(error instanceof Error ? error.message : String(error), true);
+    });
   }
 
   function renderPipelines() {
@@ -1299,14 +1349,17 @@ function createWorkspace(onRequestClose, notifier) {
     title.append(copy, button("刷新", "", loadPipelines)); section.append(title);
     if (!renderRequirement(section)) { main.append(section); return; }
     var card = node("div", "dyx-card");
-    var tools = node("div", "dyx-tools");
     var keyword = input("text", "流水线名称", state.pipelineKeyword);
-    tools.append(field("关键词", keyword), node("div"), button("查询", "primary", function () { state.pipelineKeyword = keyword.value.trim(); state.pipelines.page = 1; loadPipelines(); }), button("清空", "", function () { state.pipelineKeyword = ""; state.pipelines.page = 1; loadPipelines(); }));
-    card.append(tools);
+    function onPage(next) { state.pipelines.page = next; loadPipelines(); }
+    var filters = node("div", "dyx-pipeline-filters");
+    filters.append(field("关键词", keyword), button("查询", "primary", function () { state.pipelineKeyword = keyword.value.trim(); state.pipelines.page = 1; loadPipelines(); }), button("清空", "", function () { state.pipelineKeyword = ""; state.pipelines.page = 1; loadPipelines(); }));
+    var toolbar = node("div", "dyx-list-toolbar");
+    toolbar.append(filters, pager(state.pipelines, onPage));
+    card.append(toolbar);
     if (state.pipelines.stale) card.append(node("div", "dyx-stale", "云效暂时不可用，当前为 " + formatDate(state.pipelines.cachedAt) + " 的缓存。"));
     if (!state.pipelines.items.length) card.append(empty("暂无流水线", "当前账号在该组织中可能没有流水线权限。"));
     else card.append(pipelineTable(state.pipelines.items));
-    card.append(pager(state.pipelines, function (next) { state.pipelines.page = next; loadPipelines(); }));
+    card.append(pager(state.pipelines, onPage));
     section.append(card); main.append(section);
   }
 
@@ -1532,6 +1585,34 @@ function safeUrl(value, image) {
   try { var parsed = new URL(text, window.location.origin); return ["http:", "https:"].indexOf(parsed.protocol) >= 0 ? parsed.href : ""; } catch (error) { return ""; }
 }
 
+function formatBytes(value) {
+  var size = Number(value) || 0;
+  if (size <= 0) return "";
+  var units = ["B", "KB", "MB", "GB"];
+  var index = 0;
+  while (size >= 1024 && index < units.length - 1) { size /= 1024; index += 1; }
+  return (index ? size.toFixed(1) : String(Math.round(size))) + " " + units[index];
+}
+
+// 优先 blob 保存（可指定文件名）；云效 OSS 直链不允许跨域请求时退回新窗口由浏览器处理。
+function downloadFile(url, fileName) {
+  fetch(url, { cache: "no-store" }).then(function (response) {
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    return response.blob();
+  }).then(function (blob) {
+    var objectUrl = URL.createObjectURL(blob);
+    var link = node("a");
+    link.href = objectUrl;
+    link.download = fileName || "附件";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(objectUrl); }, 4000);
+  }).catch(function () {
+    window.open(url, "_blank", "noopener");
+  });
+}
+
 function appendJsonMl(parent, value) {
   if (value === null || value === undefined || value === false) return;
   if (typeof value === "string" || typeof value === "number") { parent.append(document.createTextNode(String(value))); return; }
@@ -1556,7 +1637,7 @@ function richSource(content, format) {
   } catch (error) { return text; }
 }
 
-function renderRich(container, content, format, attachments) {
+function renderRich(container, content, format, attachments, defectId) {
   if (!String(content || "").trim()) { container.append(node("div", "dyx-muted", "暂无内容")); return; }
   var template = document.createElement("template"); template.innerHTML = richSource(content, format);
   Array.from(template.content.querySelectorAll("*")).forEach(function (element) {
@@ -1564,7 +1645,18 @@ function renderRich(container, content, format, attachments) {
     if (element.tagName === "IMG") {
       var allValues = Array.from(element.attributes).map(function (attr) { return attr.value; }).join(" ");
       var attachment = (attachments || []).find(function (item) { return item.fileId && allValues.indexOf(item.fileId) >= 0; });
-      if (attachment) element.setAttribute("src", attachment.url);
+      if (attachment) {
+        element.setAttribute("src", attachment.url);
+        // 云效文件直链有时效性，加载失败时实时换取新的下载地址重试一次。
+        element.addEventListener("error", function () {
+          if (!defectId || !attachment.fileId || element.dataset.refreshed) return;
+          element.dataset.refreshed = "1";
+          rpc("defect.attachment.link", rpcArgs({ defectId: defectId, fileId: attachment.fileId })).then(function (result) {
+            var url = safeUrl(result && result.url);
+            if (url) element.setAttribute("src", url);
+          }).catch(function () {});
+        });
+      }
     }
     var allowed = TAG_ATTRS[element.tagName] || new Set();
     Array.from(element.attributes).forEach(function (attr) { if (!SHARED_ATTRS.has(attr.name) && !allowed.has(attr.name)) element.removeAttribute(attr.name); });

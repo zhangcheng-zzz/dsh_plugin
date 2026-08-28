@@ -603,6 +603,24 @@ function createApiClient(config) {
     return { id, projectId, defectId };
   }
 
+  // 云效附件列表返回的 url 是临时下载地址，有时效性；
+  // 此处用 GetWorkitemFile 按 fileId 实时换取新的下载地址。
+  async function getAttachmentLink(account, projectId, defectId, fileId) {
+    const api = paths(account);
+    const response = await request(account, `${api.workitems}/${encodeURIComponent(defectId)}/files/${encodeURIComponent(fileId)}`);
+    const payload = response.payload && typeof response.payload === "object" && !Array.isArray(response.payload) ? response.payload : {};
+    const file = payload.workitemFile && typeof payload.workitemFile === "object" ? payload.workitemFile : payload;
+    const url = cleanTextPreserve(file.url, 4000);
+    if (!url) throw new YunxiaoError("云效未返回附件下载地址", 502);
+    return {
+      fileId: cleanText(file.id || fileId, 128),
+      fileName: cleanText(file.name || file.fileName, 500),
+      suffix: cleanText(file.suffix, 30),
+      size: Number(file.size || 0),
+      url
+    };
+  }
+
   async function listPipelines(account, query = {}) {
     const api = paths(account);
     const page = clampInteger(query.page, 1, 1, 10_000);
@@ -753,6 +771,7 @@ function createApiClient(config) {
     listProjects,
     listDefects,
     getDefect,
+    getAttachmentLink,
     getDefectStatuses,
     listDefectStatusOptions,
     resolveNotificationStatuses,
@@ -1225,6 +1244,13 @@ function createRpc(store, api, systemNotifier = showWindowsNotification) {
         if (!defectId) throw new YunxiaoError("缺陷 ID 不能为空", 422);
         if (!content) throw new YunxiaoError("评论内容不能为空", 422);
         return api.createDefectComment(account, projectId, defectId, content);
+      }
+      case "defect.attachment.link": {
+        const { account, projectId } = await accountAndProject(args);
+        const defectId = cleanText(args.defectId, 128);
+        const fileId = cleanText(args.fileId, 128);
+        if (!defectId || !fileId) throw new YunxiaoError("缺陷 ID 和附件 ID 不能为空", 422);
+        return api.getAttachmentLink(account, projectId, defectId, fileId);
       }
       case "pipelines.list": {
         const { account } = await accountAndProject(args);

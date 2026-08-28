@@ -39,8 +39,10 @@
       else if (method === 'defects.list') {
         const args = request.args || {};
         const items = defects.filter(item => (!args.statusId || item.statusId === args.statusId) && (!args.assignedToId || item.assignedToId === args.assignedToId));
-        data = { items, total: items.length, page: 1, pageSize: 20, stale: false };
+        data = { items, total: items.length, page: 1, pageSize: 5, stale: false };
       }
+      else if (method === 'defect.members') data = [{ id: 'u1', name: '张三' }, { id: 'u2', name: '王五' }];
+      else if (method === 'defect.statusOptions') data = { items: statuses };
       else if (method === 'defect.notification.assignees') data = [{ id: 'u1', name: '张三' }, { id: 'u2', name: '王五' }];
       else if (method === 'defect.notification.scan') {
         const eligible = defects.filter(item => ['待确认', '再次打开'].includes(item.statusName) && (!request.args.assignedToId || item.assignedToId === request.args.assignedToId));
@@ -53,13 +55,14 @@
       }
       else if (method === 'defect.get') {
         const defect = defects.find(item => item.id === request.args.defectId) || defects[0];
-        data = { defect, description: '<p>这是本地预览中的缺陷详情，用于验证通知跳转。</p>', descriptionFormat: 'RICHTEXT', statuses, comments: defectComments, attachments: [], warning: '' };
+        data = { defect, description: '<p>这是本地预览中的缺陷详情，用于验证通知跳转。</p>', descriptionFormat: 'RICHTEXT', statuses, comments: defectComments, attachments: [{ fileId: 'file-1', fileName: '登录页报错截图.png', suffix: '.png', size: 102400, url: 'https://example.com/expired/file-1.png', creatorName: '张三', gmtCreate: '2026-08-24T07:00:00Z' }, { fileId: 'file-2', fileName: '网关响应日志.log', suffix: '.log', size: 20480, url: 'https://example.com/expired/file-2.log', creatorName: '李四', gmtCreate: '2026-08-24T07:10:00Z' }], warning: '' };
       }
       else if (method === 'defect.comment.create') {
         const created = { id: 'c' + (defectComments.length + 1), userName: '当前账号', content: request.args.content, contentFormat: 'MARKDOWN', gmtCreate: new Date().toISOString() };
         defectComments.unshift(created);
         data = { id: created.id, projectId: 'project-1', defectId: request.args.defectId };
       }
+      else if (method === 'defect.attachment.link') data = { fileId: request.args.fileId, fileName: '刷新后的下载地址', suffix: '', size: 0, url: 'https://example.com/fresh/' + request.args.fileId };
       else if (method === 'defect.statuses') data = statuses;
       else if (method === 'defect.status.update') {
         const item = defects.find(entry => entry.id === request.args.defectId);
@@ -67,7 +70,7 @@
         if (item && status) { item.statusId = status.id; item.statusName = status.name; }
         data = item;
       }
-      else if (method === 'pipelines.list') data = { items: pipelines, total: 2, page: 1, pageSize: 20, stale: false };
+      else if (method === 'pipelines.list') data = { items: pipelines, total: 2, page: 1, pageSize: 5, stale: false };
       else if (method === 'pipeline.get') data = { pipeline: pipelines[0], envName: '生产环境', sources: [{ sourceId: 's1', name: '主仓库', type: 'Codeup', repo: 'https://codeup.aliyun.com/demo/app.git', defaultBranch: 'main', isBranchMode: false }] };
       else if (method === 'pipeline.runs') data = { items: [{ pipelineId: '1001', pipelineRunId: '501', status: 'SUCCESS', startTime: '2026-08-24T07:00:00Z', endTime: '2026-08-24T07:08:00Z' }], total: 1, page: 1, pageSize: 10 };
       else if (method === 'pipeline.branches') data = [{ sourceId: 's1', name: '主仓库', type: 'Codeup', repo: 'https://codeup.aliyun.com/demo/app.git', defaultBranch: 'main', isBranchMode: false, branches: ['main', 'release/2026.08'], warning: '' }];
