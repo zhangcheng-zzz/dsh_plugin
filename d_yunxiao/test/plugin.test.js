@@ -73,7 +73,12 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   const runForm = source.slice(source.indexOf("function openRunPipeline"), source.indexOf("function openPipelineRun"));
   assert.match(runForm, /pipeline\.branches/);
   assert.match(runForm, /运行分支/);
-  assert.match(runForm, /var control = node\("select", "dyx-select"\)/);
+  assert.match(runForm, /control = node\("select", "dyx-select"\)/);
+  assert.match(runForm, /input\("text", "留空使用流水线默认分支", source\.defaultBranch \|\| ""\)/);
+  assert.match(runForm, /setAttribute\("list", datalist\.id\)/);
+  assert.match(runForm, /手动添加分支/);
+  assert.match(runForm, /missingRepo\.length/);
+  assert.doesNotMatch(runForm, /暂无可用分支|control\.disabled = true/);
   assert.doesNotMatch(runForm, /留空使用默认配置/);
   assert.doesNotMatch(runForm, /window\.confirm|环境变量|envInput|envs:/);
   assert.doesNotMatch(source, /dyx-launch/);
@@ -81,10 +86,17 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   const defectFilters = source.slice(source.indexOf("function renderDefects"), source.indexOf("function defectTable"));
   assert.match(defectFilters, /dyx-defect-filters/);
   assert.match(defectFilters, /清空" \+ label/);
+  assert.match(defectFilters, /fillStatusFilterOptions\(status\)/);
+  assert.match(defectFilters, /placeholder\.value = ""/);
   assert.match(defectFilters, /请选择状态/);
   assert.match(defectFilters, /请选择负责人/);
+  assert.match(defectFilters, /filterWithClear\(status, "statusName", "状态"\)/);
   assert.match(defectFilters, /select\.addEventListener\("change"/);
   assert.doesNotMatch(defectFilters, /全部状态|全部负责人|缺陷编号|标题关键词|button\("查询"|button\("清空"/);
+  assert.match(source, /defect\.statusOptions/);
+  assert.match(source, /statusIds: statusIdsForFilter\(\)/);
+  assert.match(source, /function loadDefectFilterOptions/);
+  assert.match(source, /loadDefectFilterOptions\(\);[\r\n]+    \}[\r\n]+    if \(tab === "pipelines"/);
   assert.match(source, /cache: "no-store"/);
   assert.match(source, /dateValue\(right\.gmtCreate \|\| right\.gmtModified\) - dateValue\(left\.gmtCreate \|\| left\.gmtModified\)/);
   const listStatus = source.slice(source.indexOf("function saveListStatus"), source.indexOf("function pager"));
@@ -239,8 +251,10 @@ test("RPC uses current account/project and falls back to persisted list cache", 
   await store.selectProject(account.id, { id: "p1", name: "项目一" });
 
   let fail = false;
+  let statusOptionFail = false;
   const createdComments = [];
   const defectQueries = [];
+  const statusOptionQueries = [];
   const api = {
     listProjects: async () => [{ id: "p1", name: "项目一" }],
     listDefects: async (_account, projectId, query = {}) => {
@@ -251,6 +265,11 @@ test("RPC uses current account/project and falls back to persisted list cache", 
     listPipelines: async () => ({ items: [], total: 0, page: 1, pageSize: 20 }),
     getDefect: async () => ({}),
     getDefectStatuses: async () => [],
+    listDefectStatusOptions: async (_account, projectId) => {
+      statusOptionQueries.push(projectId);
+      if (statusOptionFail) throw new Error("status-offline");
+      return [{ id: "s1", name: "待确认" }, { id: "s2", name: "处理中" }];
+    },
     updateDefectStatus: async () => ({}),
     createDefectComment: async (_account, projectId, defectId, content) => {
       createdComments.push({ projectId, defectId, content });
@@ -276,6 +295,15 @@ test("RPC uses current account/project and falls back to persisted list cache", 
   const fresh = await rpc("defects.list", {});
   assert.equal(fresh.items[0].projectId, "p1");
   assert.equal(fresh.stale, false);
+
+  const statusOptions = await rpc("defect.statusOptions", {});
+  assert.deepEqual(statusOptions.items, [{ id: "s1", name: "待确认" }, { id: "s2", name: "处理中" }]);
+  assert.equal(statusOptions.stale, false);
+  statusOptionFail = true;
+  const staleStatusOptions = await rpc("defect.statusOptions", {});
+  assert.equal(staleStatusOptions.stale, true);
+  assert.deepEqual(staleStatusOptions.items, [{ id: "s1", name: "待确认" }, { id: "s2", name: "处理中" }]);
+  assert.match(staleStatusOptions.warning, /status-offline/);
 
   const notificationSettings = await rpc("defect.notification.settings.update", {
     enabled: true,
@@ -398,17 +426,32 @@ test("API client sends the official defect search contract", async (t) => {
   assert.deepEqual(filters.map((item) => [item.fieldIdentifier, item.value[0]]), [
     ["serialNumber", "BUG-12"],
     ["subject", "登录"],
-    ["status", "doing"],
-    ["assignedTo", "u1"]
+    ["assignedTo", "u1"],
+    ["status", "doing"]
   ]);
+
+  await client.listDefects(
+    { organizationId: "org-1", token: "token" },
+    "project-1",
+    { statusIds: ["s-todo-1", "s-todo-2", " "] }
+  );
+  const multiStatus = JSON.parse(JSON.parse(calls[1].options.body).conditions).conditionGroups[0];
+  assert.deepEqual(multiStatus, [{
+    fieldIdentifier: "status",
+    operator: "CONTAINS",
+    value: ["s-todo-1", "s-todo-2"],
+    toValue: null,
+    className: "status",
+    format: "list"
+  }]);
 
   await client.listDefects(
     { organizationId: "org-1", token: "token" },
     "project-1",
     { page: 1, pageSize: 100, orderBy: "gmtModified" }
   );
-  assert.equal(JSON.parse(calls[1].options.body).orderBy, "gmtModified");
-  assert.equal(JSON.parse(calls[1].options.body).perPage, 100);
+  assert.equal(JSON.parse(calls[2].options.body).orderBy, "gmtModified");
+  assert.equal(JSON.parse(calls[2].options.body).perPage, 100);
 });
 
 test("notification status IDs are resolved before filtered polling", async (t) => {
@@ -644,4 +687,124 @@ test("pipeline branch errors distinguish PAT scope from repository membership", 
   assert.match(sources[0].warning, /API 权限已生效/);
   assert.match(sources[0].warning, /代码库访问权限/);
   assert.deepEqual(sources[0].branches, []);
+});
+
+test("project defect status options merge every Bug workitem type workflow", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  t.after(() => { globalThis.fetch = previousFetch; });
+  globalThis.fetch = async (url) => {
+    const value = String(url);
+    calls.push(value);
+    if (value.endsWith("/workitemTypes?category=Bug")) {
+      return new Response(JSON.stringify([
+        { id: "type-1", name: "缺陷" },
+        { id: "type-2", name: "线上缺陷" }
+      ]), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (value.endsWith("/workitemTypes/type-1/workflows")) {
+      return new Response(JSON.stringify({ statuses: [{ id: "s1", name: "待确认" }, { id: "s2", displayName: "处理中" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    if (value.endsWith("/workitemTypes/type-2/workflows")) {
+      return new Response(JSON.stringify({ statuses: [{ id: "s3", name: "待确认" }, { id: "s4", name: "已关闭" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  const client = createApiClient({ apiBaseUrl: "https://openapi-rdc.aliyuncs.com", timeoutMs: 5000 });
+  const statuses = await client.listDefectStatusOptions({ organizationId: "org-1", token: "token" }, "project-1");
+  assert.deepEqual(statuses, [
+    { id: "s1", name: "待确认" },
+    { id: "s2", name: "处理中" },
+    { id: "s3", name: "待确认" },
+    { id: "s4", name: "已关闭" }
+  ]);
+  assert.match(calls[0], /projects\/project-1\/workitemTypes\?category=Bug$/);
+  assert.equal(calls.filter((item) => item.endsWith("/workflows")).length, 2);
+});
+
+test("project status options fall back to recent defects and the first defect workflow", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  t.after(() => { globalThis.fetch = previousFetch; });
+  globalThis.fetch = async (url, options = {}) => {
+    const value = String(url);
+    calls.push(`${options.method || "GET"} ${value}`);
+    if (value.endsWith("/workitemTypes?category=Bug")) {
+      return new Response(JSON.stringify({ errorMessage: "无权限" }), { status: 403, headers: { "content-type": "application/json" } });
+    }
+    if (value.endsWith("/workitems:search")) {
+      return new Response(JSON.stringify([
+        { id: "bug-1", status: { id: "s9", displayName: "待确认" } },
+        { id: "bug-2", status: { id: "s8", displayName: "处理中" } }
+      ]), { status: 200, headers: { "content-type": "application/json", "x-total-count": "2" } });
+    }
+    if (value.endsWith("/workitems/bug-1")) {
+      return new Response(JSON.stringify({ id: "bug-1", space: { id: "project-1" }, workitemType: { id: "type-1" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    if (value.endsWith("/workitems/bug-1/workflow")) {
+      return new Response(JSON.stringify({ statuses: [{ id: "s2", name: "处理中" }, { id: "s4", name: "已关闭" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    throw new Error(`unexpected request: ${options.method || "GET"} ${value}`);
+  };
+  const client = createApiClient({ apiBaseUrl: "https://openapi-rdc.aliyuncs.com", timeoutMs: 5000 });
+  const statuses = await client.listDefectStatusOptions({ organizationId: "org-1", token: "token" }, "project-1");
+  assert.deepEqual(statuses, [
+    { id: "s9", name: "待确认" },
+    { id: "s8", name: "处理中" },
+    { id: "s2", name: "处理中" },
+    { id: "s4", name: "已关闭" }
+  ]);
+});
+
+test("pipeline branches are fetched for SSH-style and repoUrl-only codeup sources", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  t.after(() => { globalThis.fetch = previousFetch; });
+  globalThis.fetch = async (url) => {
+    const value = String(url);
+    calls.push(value);
+    if (value.includes("/repositories/org%2Fssh-repo/branches")) {
+      return new Response(JSON.stringify([{ name: "master" }, { name: "develop" }]), {
+        status: 200,
+        headers: { "content-type": "application/json", "x-total-pages": "1" }
+      });
+    }
+    if (value.includes("/repositories/org%2Falt-repo/branches")) {
+      return new Response(JSON.stringify([{ name: "main" }]), {
+        status: 200,
+        headers: { "content-type": "application/json", "x-total-pages": "1" }
+      });
+    }
+    if (value.endsWith("/pipelines/7")) {
+      return new Response(JSON.stringify({
+        id: 7,
+        name: "branches",
+        pipelineConfig: { sources: [
+          { type: "codeup", name: "ssh-source", data: { repo: "git@codeup.aliyun.com:org/ssh-repo.git", branch: "master" } },
+          { type: "codeup", name: "alt-source", data: { repoUrl: "https://codeup.aliyun.com/org/alt-repo.git", branch: "main" } }
+        ] }
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  const client = createApiClient({ apiBaseUrl: "https://openapi-rdc.aliyuncs.com", timeoutMs: 5000 });
+  const sources = await client.listPipelineBranches({ organizationId: "org-1", token: "token" }, "7");
+  assert.deepEqual(sources[0].branches, ["master", "develop"]);
+  assert.equal(sources[0].repo, "git@codeup.aliyun.com:org/ssh-repo.git");
+  assert.equal(sources[0].warning, "");
+  assert.deepEqual(sources[1].branches, ["main"]);
+  assert.equal(sources[1].repo, "https://codeup.aliyun.com/org/alt-repo.git");
+  assert.equal(sources[1].warning, "");
 });

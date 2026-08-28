@@ -362,15 +362,24 @@ function createApiClient(config) {
     const page = clampInteger(query.page, 1, 1, 10_000);
     const pageSize = clampInteger(query.pageSize, 20, 1, 100);
     const orderBy = cleanText(query.orderBy, 30) === "gmtModified" ? "gmtModified" : "gmtCreate";
+    // 状态筛选支持多值：不同缺陷工作项类型下同名状态的 ID 不同，需一起下发
+    const statusIds = (Array.isArray(query.statusIds) ? query.statusIds : [])
+      .map((item) => cleanText(item, 128))
+      .filter(Boolean)
+      .slice(0, 50);
+    const legacyStatusId = cleanText(query.statusId, 255);
+    const statusValues = statusIds.length ? statusIds : legacyStatusId ? [legacyStatusId] : [];
     const filters = [];
     for (const [fieldIdentifier, key, className, format] of [
       ["serialNumber", "serialNumber", "string", "input"],
       ["subject", "subject", "string", "input"],
-      ["status", "statusId", "status", "list"],
       ["assignedTo", "assignedToId", "user", "list"]
     ]) {
       const value = cleanText(query[key], 255);
       if (value) filters.push({ fieldIdentifier, operator: "CONTAINS", value: [value], toValue: null, className, format });
+    }
+    if (statusValues.length) {
+      filters.push({ fieldIdentifier: "status", operator: "CONTAINS", value: statusValues, toValue: null, className: "status", format: "list" });
     }
     const response = await request(account, api.workitemSearch, {
       method: "POST",
@@ -461,6 +470,62 @@ function createApiClient(config) {
     const statuses = await resolveDefectStatuses(account, api, itemPath, itemResponse.payload, workflowResponse);
     if (!statuses.length) throw new YunxiaoError("当前缺陷没有可用的工作流状态");
     return statuses;
+  }
+
+  async function listProjectWorkitemTypes(account, projectId, category) {
+    const api = paths(account);
+    const response = await request(
+      account,
+      `${api.projex}/projects/${encodeURIComponent(projectId)}/workitemTypes`,
+      { query: { category } }
+    );
+    if (!Array.isArray(response.payload)) throw new YunxiaoError("云效工作项类型接口返回格式异常");
+    return response.payload
+      .filter((item) => item && typeof item === "object" && cleanText(item?.id, 128))
+      .map((item) => ({ id: cleanText(item.id, 128), name: displayName(item) }));
+  }
+
+  async function listDefectStatusOptions(account, projectId) {
+    const api = paths(account);
+    const projectPath = `${api.projex}/projects/${encodeURIComponent(projectId)}`;
+    let typeError = null;
+    let types = [];
+    try {
+      types = await listProjectWorkitemTypes(account, projectId, "Bug");
+    } catch (error) {
+      typeError = error;
+    }
+    const workflowGroups = await mapLimit(types, 4, async (type) => {
+      const result = await requestOptional(account, `${projectPath}/workitemTypes/${encodeURIComponent(type.id)}/workflows`);
+      return result.ok ? extractStatuses(result.payload) : [];
+    });
+    const byId = new Map();
+    for (const group of workflowGroups) {
+      for (const status of group) {
+        const id = cleanText(status?.id, 128);
+        const name = displayName(status);
+        if (id && name && !byId.has(id)) byId.set(id, { id, name });
+      }
+    }
+    if (byId.size) return [...byId.values()];
+    // 回退：工作项类型或工作流接口不可用时，从最近缺陷和首个缺陷的工作流收集状态
+    const fallback = new Map();
+    try {
+      const recent = await listDefects(account, projectId, { page: 1, pageSize: 100 });
+      for (const item of recent.items || []) {
+        if (item.statusId && item.statusName) fallback.set(item.statusId, { id: item.statusId, name: item.statusName });
+      }
+      const firstId = recent.items?.[0]?.id;
+      if (firstId) {
+        for (const status of await getDefectStatuses(account, projectId, firstId)) {
+          if (status.id && status.name) fallback.set(status.id, status);
+        }
+      }
+    } catch (error) {
+      throw typeError || error;
+    }
+    if (fallback.size) return [...fallback.values()];
+    throw typeError || new YunxiaoError("未能读取项目的缺陷状态列表", 502);
   }
 
   async function resolveNotificationStatuses(account, projectId) {
@@ -591,8 +656,11 @@ function createApiClient(config) {
     for (const source of detail.sources) {
       const result = { ...source, branches: [], warning: "" };
       const repositoryPath = codeupRepositoryPath(source.repo);
-      if (!["codeup", "aliyungit"].includes(source.type.toLowerCase()) || !repositoryPath) {
-        result.warning = "非 Codeup 代码源，可手动填写分支";
+      const isCodeupLike = ["codeup", "aliyungit"].includes(source.type.toLowerCase());
+      if (!isCodeupLike || !repositoryPath) {
+        result.warning = isCodeupLike
+          ? "未识别到 Codeup 仓库地址，请手动填写分支"
+          : "非 Codeup 代码源，可手动填写分支";
         results.push(result);
         continue;
       }
@@ -686,6 +754,7 @@ function createApiClient(config) {
     listDefects,
     getDefect,
     getDefectStatuses,
+    listDefectStatusOptions,
     resolveNotificationStatuses,
     updateDefectStatus,
     updateDefectAssignee,
@@ -817,7 +886,7 @@ function mapPipeline(item) {
 
 function mapPipelineSource(item) {
   const data = item.data && typeof item.data === "object" ? item.data : {};
-  const repo = cleanText(data.repo, 2000);
+  const repo = cleanText(data.repo || data.repoUrl || data.repositoryUrl || item.repo || item.repoUrl, 2000);
   return {
     sourceId: cleanText(item.sign || item.name || repo, 500),
     name: cleanText(item.label || data.label || item.name || repo || "代码源", 500),
@@ -861,8 +930,16 @@ function cleanMapping(value, maxItems, maxLength) {
 }
 
 function codeupRepositoryPath(repo) {
+  const text = String(repo ?? "").trim();
+  if (!text) return "";
+  // SSH 形式（git@codeup.aliyun.com:org/repo.git）无法被 URL 解析，单独识别
+  const scpLike = text.match(/^(?:ssh:\/\/)?git@([^/:]+)[:/](.+)$/i);
+  if (scpLike) {
+    if (!scpLike[1].toLowerCase().includes("codeup")) return "";
+    return scpLike[2].replace(/^\/+/, "").replace(/\.git$/i, "").replace(/\/+$/, "");
+  }
   try {
-    const url = new URL(repo);
+    const url = new URL(text);
     if (!url.hostname.toLowerCase().includes("codeup")) return "";
     return url.pathname.replace(/^\/+|\/+$/g, "").replace(/\.git$/i, "");
   } catch {
@@ -1097,6 +1174,9 @@ function createRpc(store, api, systemNotifier = showWindowsNotification) {
           serialNumber: cleanText(args.serialNumber, 255),
           subject: cleanText(args.subject, 255),
           statusId: cleanText(args.statusId, 128),
+          statusIds: Array.isArray(args.statusIds)
+            ? args.statusIds.map((item) => cleanText(item, 128)).filter(Boolean).slice(0, 50)
+            : [],
           assignedToId: cleanText(args.assignedToId, 128)
         };
         const key = `defects:${projectId}:${JSON.stringify(cacheQuery)}`;
@@ -1113,6 +1193,12 @@ function createRpc(store, api, systemNotifier = showWindowsNotification) {
         const defectId = cleanText(args.defectId, 128);
         if (!defectId) throw new YunxiaoError("缺陷 ID 不能为空", 422);
         return api.getDefectStatuses(account, projectId, defectId);
+      }
+      case "defect.statusOptions": {
+        const { account, projectId } = await accountAndProject(args);
+        return cached(account.id, `defect-statuses:${projectId}`, async () => ({
+          items: await api.listDefectStatusOptions(account, projectId)
+        }));
       }
       case "defect.status.update": {
         const { account, projectId } = await accountAndProject(args);

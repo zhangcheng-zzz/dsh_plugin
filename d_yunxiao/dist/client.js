@@ -496,7 +496,7 @@ function createWorkspace(onRequestClose, notifier) {
     tab: "overview",
     projects: [],
     defects: { items: [], total: 0, page: 1, pageSize: PAGE_SIZE },
-    defectFilters: { statusId: "", assignedToId: "" },
+    defectFilters: { statusName: "", assignedToId: "" },
     defectStatusOptions: [],
     defectAssigneeOptions: [],
     defectStatuses: {},
@@ -517,6 +517,9 @@ function createWorkspace(onRequestClose, notifier) {
   var defectStatusFilterControl;
   var defectAssigneeFilterControl;
   var defectLoadRevision = 0;
+  var defectFilterOptionsScope = "";
+  var defectFilterOptionsLoading = false;
+  var branchDatalistSeq = 0;
   var notificationAssigneesScope = "";
   var unsubscribeNotifier = null;
 
@@ -562,7 +565,10 @@ function createWorkspace(onRequestClose, notifier) {
     if (tab === "defects" && notifier) notifier.markRead();
     Object.keys(navButtons).forEach(function (key) { navButtons[key].classList.toggle("active", key === tab); });
     render();
-    if (tab === "defects" && selectedProject()) loadDefects();
+    if (tab === "defects" && selectedProject()) {
+      loadDefects();
+      loadDefectFilterOptions();
+    }
     if (tab === "pipelines" && selectedProject()) loadPipelines();
   }
 
@@ -842,14 +848,17 @@ function createWorkspace(onRequestClose, notifier) {
     var tools = node("div", "dyx-defect-filters");
     var status = node("select", "dyx-select");
     status.setAttribute("aria-label", "按状态筛选");
-    status.append(node("option", "", "请选择状态"));
-    state.defectStatusOptions.forEach(function (item) { var option = node("option", "", item.name); option.value = item.id; status.append(option); });
-    status.value = state.defectFilters.statusId;
+    fillStatusFilterOptions(status);
     var assignee = node("select", "dyx-select");
     assignee.setAttribute("aria-label", "按负责人筛选");
-    assignee.append(node("option", "", "请选择负责人"));
+    var assigneePlaceholder = node("option", "", "请选择负责人");
+    assigneePlaceholder.value = "";
+    assignee.append(assigneePlaceholder);
     state.defectAssigneeOptions.forEach(function (item) { var option = node("option", "", item.name); option.value = item.id; assignee.append(option); });
-    assignee.value = state.defectFilters.assignedToId;
+    var wantedAssignee = state.defectFilters.assignedToId || "";
+    var hasWantedAssignee = Array.from(assignee.options).some(function (option) { return option.value === wantedAssignee; });
+    if (!hasWantedAssignee) state.defectFilters.assignedToId = "";
+    assignee.value = hasWantedAssignee ? wantedAssignee : "";
     defectStatusFilterControl = status;
     defectAssigneeFilterControl = assignee;
     function autoQuery() {
@@ -877,7 +886,7 @@ function createWorkspace(onRequestClose, notifier) {
       wrap.append(select, clear);
       return wrap;
     }
-    tools.append(field("状态", filterWithClear(status, "statusId", "状态")), field("负责人", filterWithClear(assignee, "assignedToId", "负责人")));
+    tools.append(field("状态", filterWithClear(status, "statusName", "状态")), field("负责人", filterWithClear(assignee, "assignedToId", "负责人")));
     card.append(tools);
     if (state.defects.stale) card.append(node("div", "dyx-stale", "云效暂时不可用，当前为 " + formatDate(state.defects.cachedAt) + " 的缓存。"));
     if (!state.defects.items.length) card.append(empty("暂无缺陷", "可调整关键词后重新查询。"));
@@ -885,6 +894,40 @@ function createWorkspace(onRequestClose, notifier) {
     card.append(pager(state.defects, function (next) { state.defects.page = next; loadDefects(); }));
     section.append(card);
     main.append(section);
+  }
+
+  // 不同缺陷工作项类型下同名状态的 ID 不同，筛选下拉按状态名称去重，
+  // 查询时通过 statusIds 携带同名状态的各个 ID。
+  function fillStatusFilterOptions(select) {
+    var byName = new Map();
+    state.defectStatusOptions.forEach(function (item) {
+      if (!byName.has(item.name)) byName.set(item.name, []);
+      byName.get(item.name).push(item.id);
+    });
+    select.textContent = "";
+    var placeholder = node("option", "", "请选择状态");
+    placeholder.value = "";
+    select.append(placeholder);
+    byName.forEach(function (ids, name) {
+      var option = node("option", "", name);
+      option.value = name;
+      select.append(option);
+    });
+    var wanted = state.defectFilters.statusName || "";
+    var hasWanted = Array.from(select.options).some(function (option) { return option.value === wanted; });
+    if (!hasWanted) state.defectFilters.statusName = "";
+    select.value = hasWanted ? wanted : "";
+    return byName;
+  }
+
+  function statusIdsForFilter() {
+    var name = state.defectFilters.statusName;
+    if (!name) return [];
+    var ids = [];
+    state.defectStatusOptions.forEach(function (item) {
+      if (item.name === name && ids.indexOf(item.id) < 0) ids.push(item.id);
+    });
+    return ids;
   }
 
   function defectTable(items) {
@@ -930,17 +973,20 @@ function createWorkspace(onRequestClose, notifier) {
     state.defectStatusOptions = Array.from(statusMap.values());
     state.defectAssigneeOptions = Array.from(assigneeMap.values());
     if (defectStatusFilterControl && defectStatusFilterControl.isConnected) {
-      var selectedStatus = defectStatusFilterControl.value;
-      defectStatusFilterControl.textContent = "";
-      defectStatusFilterControl.append(node("option", "", "请选择状态"));
-      state.defectStatusOptions.forEach(function (item) { var option = node("option", "", item.name); option.value = item.id; defectStatusFilterControl.append(option); });
-      defectStatusFilterControl.value = selectedStatus;
+      fillStatusFilterOptions(defectStatusFilterControl);
     }
     if (defectAssigneeFilterControl && defectAssigneeFilterControl.isConnected) {
       var selectedAssignee = defectAssigneeFilterControl.value;
       defectAssigneeFilterControl.textContent = "";
-      defectAssigneeFilterControl.append(node("option", "", "请选择负责人"));
+      var assigneePlaceholder = node("option", "", "请选择负责人");
+      assigneePlaceholder.value = "";
+      defectAssigneeFilterControl.append(assigneePlaceholder);
       state.defectAssigneeOptions.forEach(function (item) { var option = node("option", "", item.name); option.value = item.id; defectAssigneeFilterControl.append(option); });
+      var hasAssignee = Array.from(defectAssigneeFilterControl.options).some(function (option) { return option.value === selectedAssignee; });
+      if (!hasAssignee) {
+        selectedAssignee = "";
+        state.defectFilters.assignedToId = "";
+      }
       defectAssigneeFilterControl.value = selectedAssignee;
     }
   }
@@ -1011,6 +1057,31 @@ function createWorkspace(onRequestClose, notifier) {
     }, 500);
   }
 
+  // 项目级状态/成员选项：进入缺陷页时拉取一次（按项目缓存），
+  // 避免筛选下拉只包含当前页缺陷里出现过的状态。
+  function loadDefectFilterOptions() {
+    if (!selectedProject()) return;
+    var scope = projectScope();
+    if (defectFilterOptionsLoading || defectFilterOptionsScope === scope) return;
+    defectFilterOptionsLoading = true;
+    rpc("defect.members", rpcArgs({})).then(function (members) {
+      if (projectScope() !== scope) return;
+      if (state.defectMembersScope !== projectScope()) {
+        state.defectMembers = members || [];
+        state.defectMembersScope = projectScope();
+      }
+      mergeDefectOptions([], [], members);
+    }).catch(function () {});
+    rpc("defect.statusOptions", rpcArgs({})).then(function (result) {
+      if (projectScope() !== scope) return;
+      mergeDefectOptions([], result.items || []);
+    }).catch(function (error) { toast("状态选项读取失败：" + error.message, true); })
+      .finally(function () {
+        defectFilterOptionsLoading = false;
+        defectFilterOptionsScope = scope;
+      });
+  }
+
   function loadDefects() {
     if (!selectedProject()) return render();
     var revision = ++defectLoadRevision;
@@ -1018,7 +1089,7 @@ function createWorkspace(onRequestClose, notifier) {
     rpc("defects.list", rpcArgs({
       page: state.defects.page,
       pageSize: state.defects.pageSize,
-      statusId: state.defectFilters.statusId,
+      statusIds: statusIdsForFilter(),
       assignedToId: state.defectFilters.assignedToId
     })).then(function (result) {
       if (revision !== defectLoadRevision) return;
@@ -1305,23 +1376,44 @@ function createWorkspace(onRequestClose, notifier) {
 
   function openRunPipeline(pipeline) {
     var dialog = modal("运行流水线：" + pipeline.name, true);
-    dialog.body.append(empty("正在读取代码源与分支", "Codeup 分支会自动加载，其他代码源仍可手动填写。"));
+    dialog.body.append(empty("正在读取代码源与分支", "Codeup 分支会自动加载；无论是否读取到，都可以手动输入分支名称。"));
     rpc("pipeline.branches", rpcArgs({ pipelineId: pipeline.id })).then(function (sources) {
       dialog.body.textContent = "";
       var form = node("div", "dyx-form");
       var sourceFields = [];
       (sources || []).forEach(function (source) {
-        var control = node("select", "dyx-select");
         var branches = Array.from(new Set([source.defaultBranch].concat(source.branches || []).filter(Boolean)));
-        if (source.isBranchMode) { control.multiple = true; control.size = Math.min(5, Math.max(3, branches.length)); }
-        else { var blank = node("option", "", "使用流水线默认配置"); blank.value = ""; control.append(blank); }
-        if (branches.length) {
+        var datalist = node("datalist");
+        datalist.id = "dyx-branch-list-" + (++branchDatalistSeq);
+        branches.forEach(function (branch) { var option = node("option", "", branch); option.value = branch; datalist.append(option); });
+        form.append(datalist);
+        var control;
+        if (source.isBranchMode && branches.length) {
+          control = node("select", "dyx-select");
+          control.multiple = true;
+          control.size = Math.min(5, Math.max(3, branches.length));
           branches.forEach(function (branch) { var option = node("option", "", branch); option.value = branch; option.selected = branch === source.defaultBranch; control.append(option); });
+          control.setAttribute("aria-label", source.name + "运行分支");
+          form.append(field(source.name + " · 运行分支（可多选）", control));
+          var customInput = input("text", "列表里没有？手动输入分支名称", "");
+          customInput.setAttribute("list", datalist.id);
+          var addButton = button("添加分支", "", function () {
+            var name = customInput.value.trim();
+            if (!name) return;
+            var option = Array.from(control.options).find(function (item) { return item.value === name; });
+            if (!option) { option = node("option", "", name); option.value = name; control.append(option); }
+            option.selected = true;
+            customInput.value = "";
+          });
+          var customRow = node("div", "dyx-status-row");
+          customRow.append(field("手动添加分支", customInput), addButton);
+          form.append(customRow);
         } else {
-          var unavailable = node("option", "", "暂无可用分支"); unavailable.value = ""; unavailable.disabled = true; unavailable.selected = true; control.append(unavailable); control.disabled = true;
+          control = input("text", "留空使用流水线默认分支", source.defaultBranch || "");
+          control.setAttribute("list", datalist.id);
+          control.setAttribute("aria-label", source.name + "运行分支");
+          form.append(field(source.name + (source.isBranchMode ? " · 运行分支（手动输入）" : " · 运行分支"), control));
         }
-        control.setAttribute("aria-label", source.name + "运行分支");
-        form.append(field(source.name + (source.isBranchMode ? " · 运行分支（可多选）" : " · 运行分支"), control));
         if (source.warning) form.append(node("div", "dyx-note", source.warning));
         sourceFields.push({ source: source, control: control });
       });
@@ -1329,15 +1421,23 @@ function createWorkspace(onRequestClose, notifier) {
       var commentInput = input("textarea", "可选，填写本次运行备注");
       form.append(field("运行备注", commentInput)); dialog.body.append(form);
       dialog.foot.textContent = ""; dialog.foot.append(button("取消", "", dialog.close), button("确认运行", "primary", function (event) {
-        var runningBranches = {}; var branchModeBranches = [];
+        var runningBranches = {}; var branchModeBranches = []; var missingRepo = [];
         sourceFields.forEach(function (entry) {
-          if (entry.source.isBranchMode && entry.control.multiple) {
-            Array.from(entry.control.selectedOptions).forEach(function (option) { if (option.value.trim()) branchModeBranches.push(option.value.trim()); });
+          if (entry.source.isBranchMode) {
+            if (entry.control.multiple) {
+              Array.from(entry.control.selectedOptions).forEach(function (option) { var value = option.value.trim(); if (value) branchModeBranches.push(value); });
+            } else {
+              var manual = entry.control.value.trim();
+              if (manual) branchModeBranches.push(manual);
+            }
             return;
           }
-          var value = entry.control.value.trim(); if (!value) return;
-          if (entry.source.isBranchMode) branchModeBranches.push(value); else if (entry.source.repo) runningBranches[entry.source.repo] = value;
+          var value = entry.control.value.trim();
+          if (!value) return;
+          if (entry.source.repo) runningBranches[entry.source.repo] = value;
+          else missingRepo.push(entry.source.name || "代码源");
         });
+        if (missingRepo.length) toast("这些代码源未识别到仓库地址，本次运行将使用流水线默认分支：" + missingRepo.join("、"), true);
         var submit = event.currentTarget; submit.disabled = true;
         rpc("pipeline.run.create", rpcArgs({ pipelineId: pipeline.id, branchModeBranches: branchModeBranches, runningBranches: runningBranches, comment: commentInput.value })).then(function (result) {
           dialog.close(); toast("流水线已开始运行，实例 #" + result.pipelineRunId); loadPipelines();
