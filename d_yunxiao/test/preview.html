@@ -11,6 +11,11 @@
     .host p { color: #91a4bd; }
   </style>
   <script>
+    window.__pageErrors = [];
+    window.onerror = function (msg, src, line, col) { window.__pageErrors.push(msg + ' @' + line + ':' + col); };
+    window.addEventListener('unhandledrejection', function (e) { window.__pageErrors.push(String(e.reason)); });
+  </script>
+  <script>
     window.__DYX_NOTIFICATION_MINUTE_MS__ = 100;
     window.__dsh_native_notification_bridge__ = true;
     window.__previewNotifications = [];
@@ -82,6 +87,16 @@
 </head>
 <body>
   <main class="host"><h1>DeepSeek Harness</h1><p>云效插件本地视觉预览。工作台使用右侧独立栏，不遮挡聊天区域。</p></main>
+  <script>
+    // 预览辅助：URL hash 指定初始页签，如 preview.html#流水线
+    window.addEventListener('load', function () {
+      var tab = decodeURIComponent(location.hash.slice(1));
+      if (!tab) return;
+      setTimeout(function () {
+        document.querySelectorAll('.dyx-nav button').forEach(function (b) { if (b.textContent.trim() === tab) b.click(); });
+      }, 300);
+    });
+  </script>
   <script src="../dist/client.js"></script>
 </body>
 </html>
