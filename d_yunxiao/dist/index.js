@@ -60,6 +60,25 @@ function notificationStatusKind(value) {
   return "";
 }
 
+const IMAGE_MEDIA_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+
+function mediaTypeFromSuffix(value) {
+  const suffix = cleanText(value, 100).replace(/^\./, "").toLowerCase();
+  if (suffix === "png") return "image/png";
+  if (suffix === "jpg" || suffix === "jpeg") return "image/jpeg";
+  if (suffix === "gif") return "image/gif";
+  if (suffix === "webp") return "image/webp";
+  return "";
+}
+
+function normalizeWorkspaceBinding(value) {
+  const source = value && typeof value === "object" ? value : null;
+  if (!source) return null;
+  const id = cleanText(source.id, 100);
+  if (!id) return null;
+  return { id, title: cleanText(source.title, 255), path: cleanText(source.path, 2000) };
+}
+
 function emptyState() {
   return { version: 1, selectedAccountId: "", accounts: [], cache: {} };
 }
@@ -132,6 +151,7 @@ function createJsonStore(fileName, cacheMaxItems) {
       remark: account.remark || "",
       hasToken: Boolean(account.token),
       selectedProject: account.selectedProject || null,
+      workspace: normalizeWorkspaceBinding(projectSettings?.workspace),
       defectNotification: normalizeDefectNotification(projectSettings?.defectNotification),
       createdAt: account.createdAt,
       updatedAt: account.updatedAt
@@ -239,6 +259,26 @@ function createJsonStore(fileName, cacheMaxItems) {
     });
   }
 
+  async function saveWorkspaceBinding(accountId, projectId, workspace) {
+    return update((state) => {
+      const account = state.accounts.find((item) => item.id === cleanText(accountId, 100));
+      if (!account) throw new YunxiaoError("账号不存在", 404);
+      const targetProjectId = cleanText(projectId || account.selectedProject?.id, 128);
+      if (!targetProjectId) throw new YunxiaoError("请先选择项目", 422);
+      if (!account.projectSettings || typeof account.projectSettings !== "object") account.projectSettings = {};
+      const projectSettings = account.projectSettings[targetProjectId] && typeof account.projectSettings[targetProjectId] === "object"
+        ? account.projectSettings[targetProjectId]
+        : {};
+      const binding = normalizeWorkspaceBinding(workspace);
+      if (binding) projectSettings.workspace = binding;
+      else delete projectSettings.workspace;
+      account.projectSettings[targetProjectId] = projectSettings;
+      account.updatedAt = new Date().toISOString();
+      state.selectedAccountId = account.id;
+      return binding;
+    });
+  }
+
   async function putCache(accountId, key, value) {
     return update((state) => {
       const accountCache = state.cache[accountId] || {};
@@ -266,6 +306,7 @@ function createJsonStore(fileName, cacheMaxItems) {
     deleteAccount,
     selectProject,
     saveDefectNotification,
+    saveWorkspaceBinding,
     putCache,
     getCache
   };
@@ -621,6 +662,32 @@ function createApiClient(config) {
     };
   }
 
+  // 缺陷“处理”到会话时需要把图片转成 base64；云效 OSS 直链不允许浏览器跨域读取，
+  // 因此在宿主侧下载后再返回，供会话消息和输入框草稿直接使用。
+  async function getAttachmentData(account, projectId, defectId, fileId, options = {}) {
+    const maxBytes = Number(options.maxBytes) > 0 ? Number(options.maxBytes) : 10_000_000;
+    const link = await getAttachmentLink(account, projectId, defectId, fileId);
+    let response;
+    try {
+      response = await fetch(link.url, { cache: "no-store", signal: AbortSignal.timeout(config.timeoutMs) });
+    } catch (error) {
+      throw new YunxiaoError(`下载附件失败：${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (!response.ok) throw new YunxiaoError(`下载附件失败：HTTP ${response.status}`);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.byteLength) throw new YunxiaoError("附件内容为空", 502);
+    if (buffer.byteLength > maxBytes) throw new YunxiaoError(`附件超过 ${Math.round(maxBytes / 1024 / 1024)}MB 限制`, 413);
+    const headerType = cleanText(response.headers.get("content-type"), 100).split(";")[0].trim().toLowerCase();
+    const mediaType = IMAGE_MEDIA_TYPES.has(headerType) ? headerType : mediaTypeFromSuffix(link.suffix || link.fileName);
+    return {
+      fileId: link.fileId,
+      fileName: link.fileName,
+      size: buffer.byteLength,
+      mediaType,
+      data: buffer.toString("base64")
+    };
+  }
+
   async function listPipelines(account, query = {}) {
     const api = paths(account);
     const page = clampInteger(query.page, 1, 1, 10_000);
@@ -772,6 +839,7 @@ function createApiClient(config) {
     listDefects,
     getDefect,
     getAttachmentLink,
+    getAttachmentData,
     getDefectStatuses,
     listDefectStatusOptions,
     resolveNotificationStatuses,
@@ -1093,7 +1161,7 @@ async function openWindowsNotificationSettings(options = {}) {
   });
 }
 
-function createRpc(store, api, systemNotifier = showWindowsNotification) {
+function createRpc(store, api, systemNotifier = showWindowsNotification, listWorkspaces = () => []) {
   async function accountAndProject(args) {
     const account = await store.getAccount(args.accountId);
     const projectId = cleanText(args.projectId || account.selectedProject?.id, 128);
@@ -1130,6 +1198,8 @@ function createRpc(store, api, systemNotifier = showWindowsNotification) {
         return store.selectAccount(args.accountId);
       case "account.delete":
         return store.deleteAccount(args.accountId);
+      case "workspaces.list":
+        return { items: listWorkspaces() };
       case "projects.list": {
         const account = await store.getAccount(args.accountId);
         const result = await cached(account.id, "projects", async () => ({ items: await api.listProjects(account) }));
@@ -1138,6 +1208,14 @@ function createRpc(store, api, systemNotifier = showWindowsNotification) {
       }
       case "project.select":
         return store.selectProject(args.accountId, args.project || {});
+      case "project.workspace.bind": {
+        const { account, projectId } = await accountAndProject(args);
+        const workspaceId = cleanText(args.workspaceId, 100);
+        if (!workspaceId) return store.saveWorkspaceBinding(account.id, projectId, null);
+        const workspace = listWorkspaces().find((item) => item.id === workspaceId);
+        if (!workspace) throw new YunxiaoError("未找到该 DSH 工作区，可能已被移除，请刷新列表后重试", 404);
+        return store.saveWorkspaceBinding(account.id, projectId, workspace);
+      }
       case "defect.notification.settings.update": {
         const { account, projectId } = await accountAndProject(args);
         const settings = normalizeDefectNotification(args);
@@ -1252,6 +1330,13 @@ function createRpc(store, api, systemNotifier = showWindowsNotification) {
         if (!defectId || !fileId) throw new YunxiaoError("缺陷 ID 和附件 ID 不能为空", 422);
         return api.getAttachmentLink(account, projectId, defectId, fileId);
       }
+      case "defect.attachment.data": {
+        const { account, projectId } = await accountAndProject(args);
+        const defectId = cleanText(args.defectId, 128);
+        const fileId = cleanText(args.fileId, 128);
+        if (!defectId || !fileId) throw new YunxiaoError("缺陷 ID 和附件 ID 不能为空", 422);
+        return api.getAttachmentData(account, projectId, defectId, fileId);
+      }
       case "pipelines.list": {
         const { account } = await accountAndProject(args);
         return cached(account.id, "pipelines", () => api.listPipelines(account, args));
@@ -1348,7 +1433,28 @@ function apply(ctx, suppliedConfig = {}) {
 
   const store = createJsonStore(config.dataFile, config.cacheMaxItems);
   const api = createApiClient(config);
-  const rpc = createRpc(store, api);
+
+  // 读取 Harness 的工作区注册表（workspaceRegistry）供设置页绑定与校验；
+  // 服务缺失或未启动时返回空列表，不影响其余功能。
+  function listHarnessWorkspaces() {
+    const reflect = ctx.reflect;
+    if (!reflect || typeof reflect.get !== "function") return [];
+    try {
+      const registry = reflect.get("workspaceRegistry");
+      if (!registry || typeof registry.list !== "function") return [];
+      return registry.list()
+        .map((entity) => ({
+          id: cleanText(entity.id, 100),
+          title: cleanText(entity.title, 255),
+          path: cleanText(entity.path, 2000)
+        }))
+        .filter((item) => item.id);
+    } catch {
+      return [];
+    }
+  }
+
+  const rpc = createRpc(store, api, showWindowsNotification, listHarnessWorkspaces);
   registerTools(ctx, rpc, config.timeoutMs);
 
   ctx.inject(["webServer"], (httpCtx) => {

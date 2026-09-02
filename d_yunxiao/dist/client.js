@@ -70,17 +70,17 @@ var CSS = [
   ".dyx-detail-title{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}.dyx-detail-title h2{margin:0;font-size:16px;font-weight:650;line-height:1.45}.dyx-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;margin:12px 0}.dyx-meta div{padding:9px 12px;border-radius:11px;background:var(--dyx-panel2);font-size:13px}.dyx-meta small{display:block;margin-bottom:1px;color:var(--dyx-muted);font-size:11.5px}",
   ".dyx-rich{line-height:1.75;overflow-wrap:anywhere;font-size:13.5px}.dyx-rich img{max-width:100%;height:auto;border-radius:10px}.dyx-rich pre,.dyx-log{overflow:auto;padding:13px;border:0;border-radius:12px;color:#c9d8f0;background:#0d1424;font:12px/1.65 Consolas,Menlo,Monaco,monospace;white-space:pre-wrap;scrollbar-width:thin;scrollbar-color:#3c4859 transparent}.dyx-rich table{border-collapse:collapse}.dyx-rich td,.dyx-rich th{border:1px solid var(--dyx-line-strong);padding:5px 8px}",
   ".dyx-comment-compose{margin-bottom:12px;padding:13px;border:0;border-radius:13px;background:var(--dyx-panel2)}.dyx-comment-compose .dyx-textarea{min-height:92px;background:var(--dyx-field)}.dyx-comment-compose-actions{margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:10px}.dyx-comment-compose-actions span{color:var(--dyx-muted);font-size:11.5px}.dyx-comments{display:grid;gap:9px}.dyx-comment{padding:11px 14px;border:0;border-radius:13px;background:var(--dyx-panel2)}.dyx-comment-head{display:flex;justify-content:space-between;margin-bottom:6px;color:var(--dyx-muted);font-size:12px}.dyx-comment-head strong{color:var(--dyx-text);font-weight:600}",
-  ".dyx-status-row{display:flex;align-items:end;gap:8px}.dyx-status-row .dyx-field{min-width:170px;flex:1}.dyx-note{padding:10px 13px;border-radius:11px;color:var(--dyx-warn);background:var(--dyx-warn-weak);font-size:12.5px}",
+  ".dyx-status-row{display:flex;align-items:end;gap:8px;flex-wrap:wrap}.dyx-status-row .dyx-field{width:150px;flex:none}.dyx-status-row .dyx-actions{flex:none}.dyx-note{padding:10px 13px;border-radius:11px;color:var(--dyx-warn);background:var(--dyx-warn-weak);font-size:12.5px}",
   ".dyx-stage{margin:6px 0;padding:9px 13px;display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:10px;border:0;border-radius:11px;background:var(--dyx-panel2)}.dyx-dot{width:8px;height:8px;border-radius:50%;background:#98a4b5}.dyx-dot.SUCCESS{background:#2eb17c}.dyx-dot.RUNNING{background:#eaa63f}.dyx-dot.FAIL,.dyx-dot.FAILED{background:#e05a52}",
   // 记录卡：彩色描边换成同色调弱衬底，状态用底色传达。
   ".dyx-record-list{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}.dyx-record{padding:12px 15px;border:0;border-radius:13px;background:var(--dyx-panel2)}.dyx-record.dyx-record-status-pending{background:color-mix(in srgb,var(--dyx-status-pending) 8%,var(--dyx-panel2))}.dyx-record.dyx-record-status-processing{background:color-mix(in srgb,var(--dyx-status-processing) 8%,var(--dyx-panel2))}.dyx-record.dyx-record-status-reopened{background:color-mix(in srgb,var(--dyx-status-reopened) 8%,var(--dyx-panel2))}.dyx-record-clickable{cursor:pointer;transition:box-shadow .15s,transform .15s}.dyx-record-clickable:hover{box-shadow:var(--dyx-shadow-sm)}.dyx-record-clickable:active{transform:scale(.995)}.dyx-record-head,.dyx-record-foot{display:flex;align-items:center;justify-content:space-between;gap:9px}.dyx-record-title{margin:8px 0;color:var(--dyx-text);font-size:13.5px;font-weight:600;line-height:1.5}.dyx-record-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--dyx-muted);font-size:12px}.dyx-record-foot{margin-top:10px;padding-top:10px;border-top:1px solid var(--dyx-line)}",
-  ".dyx-defect-row{display:flex;flex-direction:column;gap:6px}.dyx-defect-row-meta{display:flex;align-items:center;gap:8px;min-width:0}.dyx-defect-row-meta .dyx-btn{margin-left:auto;flex:none}.dyx-defect-row-title{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;color:var(--dyx-text);text-align:left}.dyx-defect-row-title:hover{text-decoration:none}.dyx-defect-row-title:hover .dyx-defect-row-subject{color:var(--dyx-brand)}.dyx-defect-row-serial{flex:none;color:var(--dyx-muted);font-size:12.5px;font-weight:600}.dyx-defect-row-subject{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dyx-defect-row-assignee{flex:0 1 auto;min-width:0;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dyx-muted);font-size:12px}.dyx-defect-row-time{flex:none;color:var(--dyx-muted);font-size:12px;white-space:nowrap}.dyx-defect-row .dyx-inline-status{width:96px;flex:none}",
+  ".dyx-defect-row{display:flex;flex-direction:column;gap:6px}.dyx-defect-row-meta{display:flex;align-items:center;gap:8px;min-width:0}.dyx-defect-row-meta .dyx-actions{margin-left:auto;flex:none}.dyx-defect-row-title{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;color:var(--dyx-text);text-align:left}.dyx-defect-row-title:hover{text-decoration:none}.dyx-defect-row-title:hover .dyx-defect-row-subject{color:var(--dyx-brand)}.dyx-defect-row-serial{flex:none;color:var(--dyx-muted);font-size:12.5px;font-weight:600}.dyx-defect-row-subject{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dyx-defect-row-assignee{flex:0 1 auto;min-width:0;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dyx-muted);font-size:12px}.dyx-defect-row-time{flex:none;color:var(--dyx-muted);font-size:12px;white-space:nowrap}.dyx-defect-row .dyx-inline-status{width:96px;flex:none}",
   ".dyx-inline-status{width:150px;min-height:29px;padding:3px 26px 3px 10px;border:1.5px solid transparent;border-radius:9px;font-size:12px;transition:border-color .15s,background .15s}.dyx-inline-status:focus{border-color:color-mix(in srgb,var(--dyx-brand) 45%,transparent);box-shadow:0 0 0 3px var(--dyx-brand-weak)}.dyx-status-pending{color:var(--dyx-status-pending);background:var(--dyx-status-pending-bg)}.dyx-status-processing{color:var(--dyx-status-processing);background:var(--dyx-status-processing-bg)}.dyx-status-reopened{color:var(--dyx-status-reopened);background:var(--dyx-status-reopened-bg)}",
   // 提示条不拦截点击（pointer-events:none），并放在左下角，避免盖住弹窗右上角的 × 和底部“关闭”按钮。
   ".dyx-toast-wrap{position:absolute;z-index:60;left:14px;bottom:14px;display:grid;gap:8px;pointer-events:none}.dyx-toast{max-width:340px;padding:10px 14px;border:0;border-radius:12px;background:var(--dyx-panel);box-shadow:var(--dyx-shadow);font-size:13px}.dyx-toast.error{color:var(--dyx-danger)}",
   ".dyx-global-notice{position:fixed;z-index:2147483000;right:22px;top:22px;width:min(380px,calc(100vw - 44px));padding:14px 16px;border:0;border-radius:14px;color:var(--dyx-text);background:var(--dyx-panel);box-shadow:var(--dyx-shadow);font:13.5px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;animation:dyx-slide-in .18s ease-out}.dyx-global-notice strong{display:block;margin-bottom:2px;font-size:14px;font-weight:650}.dyx-global-notice span{display:block;color:var(--dyx-muted);font-size:12.5px}.dyx-global-notice-actions{margin-top:10px;display:flex;justify-content:flex-end;gap:8px}.dyx-global-notice-actions button{min-height:29px;padding:4px 12px;border:0;border-radius:9px;color:var(--dyx-text);background:var(--dyx-tag);cursor:pointer;font:inherit;font-size:12.5px}.dyx-global-notice-actions button:hover{background:var(--dyx-hover)}.dyx-global-notice-actions button.primary{color:#fff;background:var(--dyx-brand-solid)}",
   ".dyx-loading{opacity:.6;pointer-events:none}.dyx-stale{margin-bottom:10px;padding:9px 12px;border-radius:11px;color:var(--dyx-warn);background:var(--dyx-warn-weak);font-size:12.5px}",
-  "@container(max-width:430px){.dyx-main{padding:12px 14px 20px}.dyx-notify-grid,.dyx-project-row{grid-template-columns:1fr}.dyx-defect-filters .dyx-field{width:140px}.dyx-pipeline-filters .dyx-field{width:150px}.dyx-defect-row .dyx-inline-status{width:88px}.dyx-defect-row-assignee{max-width:96px}.dyx-title{display:block}.dyx-title>.dyx-btn,.dyx-title>.dyx-actions{margin-top:8px}.dyx-modal-body{padding:12px}.dyx-head{flex-wrap:wrap;gap:8px;padding:8px 10px 8px 14px}.dyx-nav{order:3;width:100%}.dyx-nav button{flex:1;min-height:30px;padding:5px 10px;font-size:12.5px}.dyx-status-row{align-items:stretch;flex-direction:column}.dyx-status-row .dyx-field{min-width:0}}",
+  "@container(max-width:430px){.dyx-main{padding:12px 14px 20px}.dyx-notify-grid,.dyx-project-row{grid-template-columns:1fr}.dyx-defect-filters .dyx-field{width:140px}.dyx-pipeline-filters .dyx-field{width:150px}.dyx-defect-row .dyx-inline-status{width:88px}.dyx-defect-row-assignee{max-width:96px}.dyx-title{display:block}.dyx-title>.dyx-btn,.dyx-title>.dyx-actions{margin-top:8px}.dyx-modal-body{padding:12px}.dyx-head{flex-wrap:wrap;gap:8px;padding:8px 10px 8px 14px}.dyx-nav{order:3;width:100%}.dyx-nav button{flex:1;min-height:30px;padding:5px 10px;font-size:12.5px}.dyx-status-row{align-items:stretch;flex-direction:column}.dyx-status-row .dyx-field{min-width:0;width:auto}}",
   "@media(max-width:760px){.dyx-preview-host{inset:0;width:100%;border-radius:0}}"
 ].join("");
 
@@ -151,6 +151,13 @@ function applyDefectRecordTone(card, statusName) {
   if (["待确认", "未确认"].indexOf(normalized) >= 0) card.classList.add("dyx-record-status-pending");
   else if (normalized === "处理中") card.classList.add("dyx-record-status-processing");
   else if (["再次打开", "重新打开", "REOPEN", "REOPENED"].indexOf(normalized.toUpperCase()) >= 0) card.classList.add("dyx-record-status-reopened");
+}
+
+// 仅“待确认”“再次打开”（含同义命名）的缺陷提供“草稿/处理”两个直达按钮。
+function defectHandleAllowed(statusName) {
+  var normalized = String(statusName || "").trim();
+  if (["待确认", "未确认"].indexOf(normalized) >= 0) return true;
+  return ["再次打开", "重新打开", "REOPEN", "REOPENED"].indexOf(normalized.toUpperCase()) >= 0;
 }
 
 function selectedOptionText(select) {
@@ -510,11 +517,14 @@ function modal(title, wide) {
   return { overlay: drawer, box: box, body: body, foot: foot, close: closeDrawer };
 }
 
-function createWorkspace(onRequestClose, notifier) {
+function createWorkspace(onRequestClose, notifier, services) {
   var state = {
     server: { accounts: [], selectedAccountId: "" },
     tab: "defects",
     projects: [],
+    workspaces: [],
+    workspacesError: "",
+    workspacesLoaded: false,
     defects: { items: [], total: 0, page: 1, pageSize: PAGE_SIZE },
     defectFilters: { statusName: "", assignedToId: "" },
     defectStatusOptions: [],
@@ -590,6 +600,21 @@ function createWorkspace(onRequestClose, notifier) {
       loadDefectFilterOptions();
     }
     if (tab === "pipelines" && selectedProject()) loadPipelines();
+    if (tab === "overview" && !state.workspacesLoaded) {
+      state.workspacesLoaded = true;
+      loadWorkspaces();
+    }
+  }
+
+  function loadWorkspaces() {
+    return rpc("workspaces.list").then(function (result) {
+      state.workspaces = (result && result.items) || [];
+      state.workspacesError = "";
+      if (state.tab === "overview") render();
+    }).catch(function (error) {
+      state.workspacesError = error instanceof Error ? error.message : String(error);
+      if (state.tab === "overview") render();
+    });
   }
 
   function render() {
@@ -673,7 +698,68 @@ function createWorkspace(onRequestClose, notifier) {
       projectCard.append(current);
     }
     section.append(projectCard);
+    renderWorkspaceBinding(section, account);
     main.append(section);
+  }
+
+  // DSH 工作区绑定：按账号+项目保存；绑定后缺陷列表可一键处理到该工作区的会话。
+  function renderWorkspaceBinding(section, account) {
+    var project = account && account.selectedProject || null;
+    var workspace = account && account.workspace || null;
+    var card = node("div", "dyx-card");
+    var head = node("div", "dyx-card-head");
+    head.append(node("h3", "", "DSH 工作区绑定"), node("span", "dyx-badge " + (workspace ? "ok" : ""), workspace ? "已绑定" : "未绑定"));
+    card.append(head);
+    if (!account || !project) {
+      card.append(empty(!account ? "请先选择账号" : "请先选择项目", "工作区绑定按账号和项目分别保存。"));
+      section.append(card);
+      return;
+    }
+    var row = node("div", "dyx-project-row");
+    var select = node("select", "dyx-select");
+    select.setAttribute("aria-label", "选择要绑定的 DSH 工作区");
+    var placeholder = node("option", "", state.workspaces.length ? (workspace ? "重新选择工作区" : "选择要绑定的 DSH 工作区") : "尚未读取工作区列表");
+    placeholder.value = "";
+    select.append(placeholder);
+    state.workspaces.forEach(function (item) {
+      var option = node("option", "", item.title || item.id);
+      option.value = item.id;
+      if (workspace && workspace.id === item.id) option.selected = true;
+      select.append(option);
+    });
+    var actions = node("div", "dyx-actions");
+    var refresh = node("button", "dyx-icon-btn", "↻");
+    refresh.type = "button";
+    refresh.setAttribute("aria-label", "刷新工作区列表");
+    refresh.title = "刷新工作区列表";
+    refresh.addEventListener("click", function () { loadWorkspaces(); });
+    actions.append(refresh, button(workspace ? "保存绑定" : "绑定工作区", "primary", function () {
+      if (!select.value) return toast("请选择要绑定的 DSH 工作区", true);
+      saveWorkspaceBinding(select.value, "已绑定 DSH 工作区");
+    }));
+    if (workspace) actions.append(button("解除绑定", "danger", function () { saveWorkspaceBinding("", "已解除工作区绑定"); }));
+    row.append(select, actions);
+    card.append(row);
+    var current = node("div", "dyx-current");
+    if (workspace) {
+      current.append(node("span", "", "已绑定："), node("strong", "", workspace.title || workspace.id), node("span", "", workspace.path ? "  ·  " + workspace.path : ""));
+    } else if (state.workspacesError) {
+      current.textContent = "工作区列表读取失败：" + state.workspacesError;
+    } else {
+      current.textContent = "未绑定。绑定后可在缺陷列表或详情点击“草稿”“处理”，把缺陷转为该工作区新会话的草稿，或直接发送。";
+    }
+    card.append(current);
+    section.append(card);
+  }
+
+  function saveWorkspaceBinding(workspaceId, successText) {
+    var account = selectedAccount();
+    if (!account || !account.selectedProject) return toast("请先选择项目", true);
+    setBusy(main, true);
+    rpc("project.workspace.bind", rpcArgs({ workspaceId: workspaceId })).then(loadState).then(function () {
+      render();
+      toast(successText);
+    }).catch(function (error) { toast(error.message, true); }).finally(function () { setBusy(main, false); });
   }
 
   function renderDefectNotification(section, account) {
@@ -954,7 +1040,17 @@ function createWorkspace(onRequestClose, notifier) {
     return ids;
   }
 
-  // 列表压缩为两行：标题独占一行超长省略，负责人、状态、创建时间与详情按钮同行。
+  // 行尾按钮组：待确认/再次打开才有“草稿/处理”（处理即原“立即处理”），处理紧挨“详情”左侧。
+  function fillDefectRowActions(actions, item) {
+    actions.textContent = "";
+    if (defectHandleAllowed(item.statusName)) {
+      actions.append(button("草稿", "dyx-btn-sm", function () { runHandleDefect(item, "draft"); }));
+      actions.append(button("处理", "dyx-btn-sm", function () { runHandleDefect(item, "immediate"); }));
+    }
+    actions.append(button("详情", "dyx-btn-sm", function () { openDefect(item); }));
+  }
+
+  // 列表压缩为两行：标题独占一行超长省略，负责人、状态、创建时间与操作按钮同行。
   function defectTable(items) {
     var wrap = node("div", "dyx-record-list");
     items.forEach(function (item) {
@@ -982,7 +1078,9 @@ function createWorkspace(onRequestClose, notifier) {
       var time = node("span", "dyx-defect-row-time", shortDateTime(item.gmtCreate || item.gmtModified));
       time.title = "创建 " + formatDate(item.gmtCreate || item.gmtModified);
       var meta = node("div", "dyx-defect-row-meta");
-      meta.append(assignee, statusSelect, time, button("详情", "dyx-btn-sm", function () { openDefect(item); }));
+      var actions = node("div", "dyx-actions");
+      fillDefectRowActions(actions, item);
+      meta.append(assignee, statusSelect, time, actions);
       row.append(title, meta);
       wrap.append(row);
     });
@@ -1054,6 +1152,8 @@ function createWorkspace(onRequestClose, notifier) {
       applyDefectRecordTone(card, updated.statusName);
       mergeDefectOptions([updated], state.defectStatuses[item.id]);
       fillListStatusSelect(select, item);
+      var rowActions = card.querySelector(".dyx-defect-row-meta .dyx-actions");
+      if (rowActions) fillDefectRowActions(rowActions, item);
       toast("缺陷状态已更新");
       reloadDefectsSoon();
     }).catch(function (error) {
@@ -1138,6 +1238,112 @@ function createWorkspace(onRequestClose, notifier) {
     }).catch(function (error) { dialog.body.textContent = ""; dialog.body.append(empty("读取失败", error.message)); });
   }
 
+  function handleConversation() {
+    if (!services || !services.workspaces || !services.sessions) return null;
+    var reflect = services.reflect;
+    var conversation = reflect && typeof reflect.get === "function" ? reflect.get("conversation") : null;
+    return conversation && conversation.input ? conversation : null;
+  }
+
+  // 绑定保存的是宿主工作区注册表的 ID；客户端工作区基线可能尚未同步，
+  // 这里先刷新一次并确认可见，避免 connectWorkspace 因列表未就绪而失败。
+  function ensureWorkspaceVisible(workspaceId) {
+    var workspaces = services.workspaces;
+    var known = function () {
+      return (workspaces.list.getSnapshot().items || []).some(function (item) { return item.workspaceId === workspaceId; });
+    };
+    if (known()) return Promise.resolve();
+    return Promise.resolve(workspaces.refresh()).catch(function () {}).then(function () {
+      if (!known()) throw new Error("绑定的工作区不存在或尚未同步，请刷新页面后重试");
+    });
+  }
+
+  function runHandleDefect(item, mode) {
+    var account = selectedAccount();
+    var binding = account && account.workspace || null;
+    if (!binding || !binding.id) return toast("当前项目尚未绑定 DSH 工作区，请先到设置页绑定", true);
+    var conversation = handleConversation();
+    if (!conversation) return toast("会话服务尚未就绪，请重启页面后重试", true);
+    setBusy(main, true);
+    ensureWorkspaceVisible(binding.id)
+      .then(function () { return rpc("defect.get", rpcArgs({ defectId: item.id })); })
+      .then(function (detail) { return buildHandlePayload(detail); })
+      .then(function (payload) {
+        return mode === "draft"
+          ? sendHandleDraft(conversation, binding.id, payload)
+          : sendHandleImmediate(conversation, binding.id, payload);
+      })
+      .then(function () {
+        toast(mode === "draft" ? "草稿已填入绑定工作区的新会话，确认后手动发送" : "缺陷已发送到绑定工作区的新会话");
+      })
+      .catch(function (error) { toast(error instanceof Error ? error.message : String(error), true); })
+      .finally(function () { setBusy(main, false); });
+  }
+
+  // 拉取缺陷详情里的图片（宿主侧转 base64），单张失败只跳过不阻塞整体。
+  function buildHandlePayload(detail) {
+    var item = detail && detail.defect || {};
+    var text = buildHandleText(detail);
+    var candidates = imageCandidates(detail && detail.attachments);
+    if (!candidates.length) return Promise.resolve({ text: text, images: [] });
+    return Promise.all(candidates.map(function (file) {
+      return rpc("defect.attachment.data", rpcArgs({ defectId: item.id, fileId: file.fileId }))
+        .then(function (result) {
+          if (!result || !result.data || !result.mediaType) return null;
+          return { name: result.fileName || file.fileName || "图片", mediaType: result.mediaType, data: result.data };
+        })
+        .catch(function () { return null; });
+    })).then(function (images) {
+      return { text: text, images: images.filter(Boolean) };
+    });
+  }
+
+  // 草稿：复用工作区当前空白会话（无空白会话时新建），把文本与图片放进输入框，不发送。
+  function sendHandleDraft(conversation, workspaceId, payload) {
+    var sessions = services.sessions;
+    var workspaces = services.workspaces;
+    return workspaces.connectWorkspace(workspaceId).then(function (sessionId) {
+      var target = { sessionId: sessionId, shell: conversation.input.shell(sessionId) };
+      var summary = sessions.list.getSnapshot();
+      var isBlank = Boolean(summary.byId[sessionId] && summary.byId[sessionId].blank);
+      if (target.shell.snapshot.draft.trim() !== "" || !isBlank) {
+        return sessions.create({ workspaceId: workspaceId }).then(function (freshId) {
+          return { sessionId: freshId, shell: conversation.input.shell(freshId) };
+        });
+      }
+      return target;
+    }).then(function (target) {
+      var files = payload.images.map(base64ToFile);
+      var registered = files.length ? conversation.createDraftImages(files) : [];
+      if (registered.length && !target.shell.addImages(registered.map(function (draft) { return draft.id; }))) {
+        conversation.releaseDraftImages(registered);
+      }
+      target.shell.setDraft(payload.text);
+      sessions.open(target.sessionId);
+    });
+  }
+
+  // 立即处理：新建会话并直接发送（文本 + base64 图片），随后切换到该会话。
+  function sendHandleImmediate(conversation, workspaceId, payload) {
+    var sessions = services.sessions;
+    return sessions.create({ workspaceId: workspaceId }).then(function (sessionId) {
+      var binding = sessions.binding(sessionId);
+      var session = binding && binding.session;
+      if (!session) throw new Error("新会话尚未就绪，请重试");
+      var content = payload.images.map(function (image) {
+        return { type: "image", mediaType: image.mediaType, data: image.data, name: image.name };
+      });
+      content.push({ type: "text", text: payload.text });
+      return session.prompt(content, "queue").then(function (result) {
+        if (!result || !result.ok) {
+          var detail = result && result.error ? result.error.code + ": " + result.error.message : "未知错误";
+          throw new Error("发送失败：" + detail);
+        }
+        sessions.open(sessionId);
+      });
+    });
+  }
+
   function openNotifiedDefects(items) {
     var values = (items || []).filter(function (item) { return item && item.id; });
     return loadState().then(function () {
@@ -1172,6 +1378,7 @@ function createWorkspace(onRequestClose, notifier) {
       rpc("defect.status.update", rpcArgs({ defectId: item.id, statusId: statusId })).then(function (updated) {
         detail.defect = updated; item = updated;
         applyDefectStatusTone(select, updated.statusName);
+        syncDetailActions();
         var listed = state.defects.items.find(function (entry) { return entry.id === updated.id; });
         if (listed) Object.assign(listed, updated);
         toast("缺陷状态已更新");
@@ -1240,7 +1447,19 @@ function createWorkspace(onRequestClose, notifier) {
         toast(error.message, true);
       }).finally(function () { assigneeSelect.disabled = false; });
     });
-    statusRow.append(field("状态", select), field("负责人", assigneeSelect));
+    // 详情行内直达处理：与列表一致，仅待确认/再次打开显示，随状态下拉修改同步显隐；
+    // 点击后关闭详情再执行，与原弹窗流程一致。
+    var detailActions = node("div", "dyx-actions dyx-status-row-actions");
+    var detailDraft = button("草稿", "", function () { dialog.close(); runHandleDefect(item, "draft"); });
+    var detailHandle = button("处理", "primary", function () { dialog.close(); runHandleDefect(item, "immediate"); });
+    detailActions.append(detailDraft, detailHandle);
+    function syncDetailActions() {
+      var allowed = defectHandleAllowed(item.statusName);
+      detailDraft.classList.toggle("dyx-hidden", !allowed);
+      detailHandle.classList.toggle("dyx-hidden", !allowed);
+    }
+    syncDetailActions();
+    statusRow.append(field("状态", select), field("负责人", assigneeSelect), detailActions);
     dialog.body.append(statusRow);
     var meta = node("div", "dyx-meta");
     var metaSpans = {};
@@ -1689,6 +1908,78 @@ function renderRich(container, content, format, attachments, defectId) {
   container.append(template.content);
 }
 
+// —— 缺陷“处理”到 DSH 工作区会话 ————————————————————————————————————————
+// 处理弹窗把缺陷详情转成一段纯文本（标题 + 概要 + 描述）和若干张图片：
+// 草稿模式写入新会话输入框（不发送），立即处理模式直接 prompt 发送。
+var IMAGE_MEDIA_TYPE_BY_SUFFIX = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
+var HANDLE_IMAGE_LIMIT = 8;
+
+function imageCandidates(attachments) {
+  var result = [];
+  (Array.isArray(attachments) ? attachments : []).forEach(function (file) {
+    if (!file || !file.fileId) return;
+    var suffix = String(file.suffix || "").replace(/^\./, "").toLowerCase();
+    var name = String(file.fileName || "");
+    var matched = /\.([a-z0-9]+)$/i.exec(name);
+    var mediaType = IMAGE_MEDIA_TYPE_BY_SUFFIX[suffix] || (matched && IMAGE_MEDIA_TYPE_BY_SUFFIX[matched[1].toLowerCase()]) || "";
+    if (!mediaType) return;
+    result.push({ fileId: file.fileId, fileName: name || "图片", mediaType: mediaType });
+  });
+  return result.slice(0, HANDLE_IMAGE_LIMIT);
+}
+
+function htmlToText(value) {
+  var template = document.createElement("template");
+  template.innerHTML = String(value || "");
+  var text = "";
+  var BLOCK = /^(?:P|DIV|H[1-6]|LI|TR|BLOCKQUOTE|PRE|TABLE|FIGURE|FIGCAPTION|HR|UL|OL|SECTION|ARTICLE)$/;
+  function walk(current) {
+    for (var child = current.firstChild; child; child = child.nextSibling) {
+      if (child.nodeType === 3) { text += child.nodeValue; continue; }
+      if (child.nodeType !== 1) continue;
+      var tag = child.tagName;
+      if (tag === "BR") { text += "\n"; continue; }
+      // 图片已经作为会话附件单独上传，正文里不再保留占位文字。
+      if (tag === "IMG") continue;
+      var block = BLOCK.test(tag);
+      if (block) text += "\n";
+      walk(child);
+      if (block) text += "\n";
+    }
+  }
+  walk(template.content);
+  return text.replace(/[\u00a0\t]+/g, " ").replace(/ ?\n ?/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function plainDescription(detail) {
+  var value = String((detail && detail.description) || "");
+  if (!value.trim()) return "";
+  var format = String((detail && detail.descriptionFormat) || "RICHTEXT").toUpperCase();
+  var text = format === "MARKDOWN"
+    ? value.replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    : htmlToText(richSource(value, format));
+  if (text.length > 6000) text = text.slice(0, 6000) + "\n……（描述过长已截断）";
+  return text.trim();
+}
+
+// 会话内容只保留缺陷标题；描述仅在含文字时附在后面（纯图片描述不显示“缺陷描述”）。
+// 编号、状态、负责人、附件列表和评论都不带入。
+function buildHandleText(detail) {
+  var item = detail && detail.defect || {};
+  var lines = [String(item.subject || "").trim() || "未命名缺陷"];
+  var description = plainDescription(detail);
+  if (description) lines.push("", "缺陷描述：", description);
+  return lines.join("\n").slice(0, 8000);
+}
+
+function base64ToFile(image) {
+  var binary = atob(image.data);
+  var bytes = new Uint8Array(binary.length);
+  for (var index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  var extension = String(image.mediaType || "").split("/")[1] || "png";
+  return new File([bytes], image.name || "缺陷图片." + extension, { type: image.mediaType || "image/png" });
+}
+
 function apply(ctx) {
   var existingStyle = document.getElementById(STYLE_ID);
   var style = existingStyle || node("style");
@@ -1705,7 +1996,7 @@ function apply(ctx) {
     });
     var previewHost = node("div", "dyx-preview-host");
     document.body.append(previewHost);
-    previewWorkspace = createWorkspace(function () { previewHost.remove(); }, previewNotifier);
+    previewWorkspace = createWorkspace(function () { previewHost.remove(); }, previewNotifier, ctx);
     previewWorkspace.mount(previewHost);
     previewNotifier.start();
     ctx.effect(function () { return function () { previewNotifier.dispose(); previewWorkspace.dispose(); previewHost.remove(); if (!existingStyle) style.remove(); }; }, "dsh-yunxiao: standalone preview");
@@ -1779,7 +2070,7 @@ function apply(ctx) {
     }, []);
     ReactRuntime.useEffect(function () {
       if (!open || !hostRef.current) return;
-      var workspace = createWorkspace(function () { setPanelOpen(false); }, notifier);
+      var workspace = createWorkspace(function () { setPanelOpen(false); }, notifier, ctx);
       activeWorkspace = workspace;
       workspace.mount(hostRef.current);
       if (pendingNoticeItems.length) {
@@ -1890,6 +2181,6 @@ function apply(ctx) {
 }
 
 exports.apply = apply;
-exports.inject = ["slots", "layout"];
+exports.inject = ["slots", "layout", "sessions", "workspaces"];
 return module.exports;
 } });

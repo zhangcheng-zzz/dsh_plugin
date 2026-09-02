@@ -819,3 +819,99 @@ test("pipeline branches are fetched for SSH-style and repoUrl-only codeup source
   assert.equal(sources[1].repo, "https://codeup.aliyun.com/org/alt-repo.git");
   assert.equal(sources[1].warning, "");
 });
+
+test("RPC lists harness workspaces and binds one to the current project", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "dsh-yunxiao-ws-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const store = createJsonStore(path.join(directory, "data.json"), 100);
+  const account = await store.saveAccount({ name: "主账号", organizationId: "org", token: "token" });
+  await store.selectProject(account.id, { id: "p1", name: "项目一" });
+
+  const workspaces = [
+    { id: "ws-1", title: "插件仓库", path: "E:/code/plugin" },
+    { id: "ws-2", title: "前端仓库", path: "E:/code/web" }
+  ];
+  const rpc = createRpc(store, {}, async () => ({ supported: false, accepted: false, channel: "unsupported" }), () => workspaces);
+
+  const listed = await rpc("workspaces.list", {});
+  assert.deepEqual(listed, { items: workspaces });
+
+  const bound = await rpc("project.workspace.bind", { workspaceId: "ws-1" });
+  assert.deepEqual(bound, { id: "ws-1", title: "插件仓库", path: "E:/code/plugin" });
+  const state = await store.publicState();
+  assert.deepEqual(state.accounts[0].workspace, { id: "ws-1", title: "插件仓库", path: "E:/code/plugin" });
+
+  await assert.rejects(() => rpc("project.workspace.bind", { workspaceId: "ws-404" }), /未找到该 DSH 工作区/);
+
+  const cleared = await rpc("project.workspace.bind", { workspaceId: "" });
+  assert.equal(cleared, null);
+  const stateAfterClear = await store.publicState();
+  assert.equal(stateAfterClear.accounts[0].workspace, null);
+});
+
+test("attachment data downloads images host-side with type detection and size limits", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  t.after(() => { globalThis.fetch = previousFetch; });
+  globalThis.fetch = async (url) => {
+    const value = String(url);
+    calls.push(value);
+    if (value.includes("/workitems/bug-1/files/file-1")) {
+      return new Response(JSON.stringify({ workitemFile: { id: "file-1", name: "截图.png", suffix: "png", url: "https://oss.example.com/fresh-1" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    if (value.includes("/workitems/bug-1/files/file-2")) {
+      return new Response(JSON.stringify({ workitemFile: { id: "file-2", name: "图表", suffix: "", url: "https://oss.example.com/fresh-2" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    if (value.startsWith("https://oss.example.com/fresh-1")) {
+      return new Response(new Uint8Array([137, 80, 78, 71]), { status: 200, headers: { "content-type": "image/png" } });
+    }
+    if (value.startsWith("https://oss.example.com/fresh-2")) {
+      return new Response(new Uint8Array([255, 216, 255]), { status: 200, headers: { "content-type": "application/octet-stream" } });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  const client = createApiClient({ apiBaseUrl: "https://openapi-rdc.aliyuncs.com", timeoutMs: 5000 });
+  const account = { organizationId: "org-1", token: "token" };
+
+  const png = await client.getAttachmentData(account, "project-1", "bug-1", "file-1");
+  assert.equal(png.mediaType, "image/png");
+  assert.equal(png.fileName, "截图.png");
+  assert.equal(png.size, 4);
+  assert.equal(Buffer.from(png.data, "base64").toString("hex"), "89504e47");
+
+  // content-type 无法识别时按后缀回退；两者都无法识别时 mediaType 为空，由调用方跳过该图。
+  const unknown = await client.getAttachmentData(account, "project-1", "bug-1", "file-2");
+  assert.equal(unknown.mediaType, "");
+  assert.equal(unknown.size, 3);
+
+  await assert.rejects(() => client.getAttachmentData(account, "project-1", "bug-1", "file-1", { maxBytes: 2 }), /附件超过/);
+});
+
+test("client wires workspace binding and the defect handle flow", async () => {
+  const source = await readFile(new URL("../dist/client.js", import.meta.url), "utf8");
+  assert.match(source, /exports\.inject = \["slots", "layout", "sessions", "workspaces"\]/);
+  assert.match(source, /rpc\("workspaces\.list"\)/);
+  assert.match(source, /rpc\("project\.workspace\.bind"/);
+  assert.match(source, /runHandleDefect\(item, "draft"\)/);
+  assert.match(source, /runHandleDefect\(item, "immediate"\)/);
+  assert.match(source, /defectHandleAllowed/);
+  assert.match(source, /dyx-status-row-actions/);
+  // 处理不再走弹窗选项：旧的弹窗函数与选项卡样式不应残留。
+  assert.doesNotMatch(source, /openHandleDefect/);
+  assert.doesNotMatch(source, /dyx-handle-option/);
+  assert.match(source, /connectWorkspace\(workspaceId\)/);
+  assert.match(source, /sessions\.create\(\{ workspaceId: workspaceId \}\)/);
+  assert.match(source, /session\.prompt\(content, "queue"\)/);
+  assert.match(source, /target\.shell\.setDraft\(payload\.text\)/);
+  // 会话正文只保留缺陷标题：编号、概要、附件列表不进入文案，纯图片描述不显示“缺陷描述”。
+  assert.doesNotMatch(source, /var lead = item\.serialNumber/);
+  assert.doesNotMatch(source, /meta\.push\("状态：/);
+  assert.doesNotMatch(source, /"附件：" \+ files/);
+  assert.doesNotMatch(source, /"图片" \+ \(alt/);
+});
