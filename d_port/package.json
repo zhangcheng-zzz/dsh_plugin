@@ -1,6 +1,6 @@
 {
   "name": "dsh-port",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Windows 端口管理插件：工作台查看端口占用进程并可结束进程，封装 netstat/tasklist/taskkill，无数据文件。",
   "type": "module",
   "main": "dist/index.js",

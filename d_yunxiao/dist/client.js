@@ -184,6 +184,23 @@ function clampPanelWidth(value) {
   return Math.round(Math.min(MAX_PANEL_WIDTH, responsiveMax, Math.max(MIN_PANEL_WIDTH, Number(value) || DEFAULT_PANEL_WIDTH)));
 }
 
+// 多个插件的工作台面板都注入 shell.overlay，可同时打开并叠放；
+// 激活时从共用自增序号取下一个 z-index，让后激活（或再次点击）的面板
+// 盖到先激活的面板上面。只提升 overlay 之内的元素，避免影响宿主其他层级。
+var WORKSPACE_PANEL_Z_KEY = "__dshWorkspacePanelZ";
+function raiseWorkspacePanel(panel) {
+  if (!panel) return;
+  var next = Number(window[WORKSPACE_PANEL_Z_KEY] || 10) + 1;
+  window[WORKSPACE_PANEL_Z_KEY] = next;
+  var overlay = document.querySelector("[data-shell-overlay]");
+  if (!overlay) { panel.style.zIndex = String(next); return; }
+  var cursor = panel;
+  while (cursor && cursor !== overlay) {
+    cursor.style.zIndex = String(next);
+    cursor = cursor.parentElement;
+  }
+}
+
 function statusClass(status) {
   var normalized = String(status || "").toUpperCase();
   if (["SUCCESS", "DONE", "FINISHED", "已完成"].indexOf(normalized) >= 0) return "ok";
@@ -2046,6 +2063,7 @@ function apply(ctx) {
     else { restoreWorkspaceFrame(); ctx.layout.closeDetails(); }
   }
   var activeWorkspace = null;
+  var activePanelElement = null;
   var pendingNoticeItems = [];
   function openNotifiedItems(items) {
     pendingNoticeItems = (items || []).slice();
@@ -2064,6 +2082,7 @@ function apply(ctx) {
     var open = openState[0];
     var setOpen = openState[1];
     var hostRef = ReactRuntime.useRef(null);
+    var panelRef = ReactRuntime.useRef(null);
     ReactRuntime.useEffect(function () {
       panelListeners.add(setOpen);
       return function () { panelListeners.delete(setOpen); };
@@ -2073,6 +2092,8 @@ function apply(ctx) {
       var workspace = createWorkspace(function () { setPanelOpen(false); }, notifier, ctx);
       activeWorkspace = workspace;
       workspace.mount(hostRef.current);
+      activePanelElement = panelRef.current;
+      raiseWorkspacePanel(activePanelElement);
       if (pendingNoticeItems.length) {
         var nextItems = pendingNoticeItems;
         pendingNoticeItems = [];
@@ -2080,6 +2101,7 @@ function apply(ctx) {
       }
       return function () {
         if (activeWorkspace === workspace) activeWorkspace = null;
+        if (activePanelElement === panelRef.current) activePanelElement = null;
         workspace.dispose();
       };
     }, [open]);
@@ -2116,7 +2138,7 @@ function apply(ctx) {
       applyPanelWidth(next, true);
       event.currentTarget.setAttribute("aria-valuenow", String(panelWidth));
     }
-    return ReactRuntime.createElement("div", { className: "dyx-right-panel" },
+    return ReactRuntime.createElement("div", { ref: panelRef, className: "dyx-right-panel" },
       ReactRuntime.createElement("div", {
         className: "dyx-resize-handle",
         role: "separator",
@@ -2149,7 +2171,11 @@ function apply(ctx) {
       "data-wide": wide ? "true" : "false",
       "aria-label": "打开云效工作台",
       title: wide ? undefined : "云效工作台",
-      onClick: function () { setPanelOpen(true); }
+      // 面板已打开时再次点击：重新置顶，从另一插件的面板下面翻上来。
+      onClick: function () {
+        setPanelOpen(true);
+        if (activePanelElement) raiseWorkspacePanel(activePanelElement);
+      }
     },
     ReactRuntime.createElement("span", { className: "dyx-sidebar-trigger-mark", "aria-hidden": "true" }, "云"),
     wide ? ReactRuntime.createElement("span", null, "云效工作台") : null,
