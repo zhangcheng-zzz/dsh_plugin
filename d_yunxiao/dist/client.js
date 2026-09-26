@@ -249,7 +249,7 @@ function createDefectNotifier(options) {
     lastResultCount: 0,
     lastAddedCount: 0,
     lastQueryCount: 0,
-    lastWindowsStatus: "尚未触发"
+    lastSystemStatus: "尚未触发"
   };
 
   function copySnapshot() {
@@ -309,7 +309,7 @@ function createDefectNotifier(options) {
         notification.close();
       };
       return window.__dsh_native_notification_bridge__
-        ? "已提交到 Harness；Windows 是否显示横幅由系统设置决定"
+        ? "已提交到 Harness；是否显示横幅由系统设置决定"
         : "已提交给 Web 通知";
     } catch (error) {
       return "Web 通知调用失败";
@@ -317,21 +317,21 @@ function createDefectNotifier(options) {
   }
 
   function showSystemNotification(count, items) {
-    snapshot.lastWindowsStatus = "正在提交";
+    snapshot.lastSystemStatus = "正在提交";
     emit();
     var tag = "dyx-defect-" + Date.now();
     if (window.__dsh_native_notification_bridge__) {
-      // 桌面端只提交一条原生 Toast；再发 Web Notification 会让 Windows 多弹一条重复横幅
+      // 桌面端只提交一条原生通知；再发 Web Notification 会让系统多弹一条重复横幅
       return rpc("system.notification.show", {
         title: "云效缺陷提醒",
         body: "新增 " + count + " 个缺陷需修复",
         tag: tag
       }).then(function (result) {
-        snapshot.lastWindowsStatus = result && result.accepted
+        snapshot.lastSystemStatus = result && result.accepted
           ? "Harness 桌面提醒已提交"
           : "Harness 桌面提醒不可用";
       }).catch(function (error) {
-        snapshot.lastWindowsStatus = "Harness 桌面提醒失败（" + (error instanceof Error ? error.message : String(error)) + "）";
+        snapshot.lastSystemStatus = "Harness 桌面提醒失败（" + (error instanceof Error ? error.message : String(error)) + "）";
       }).then(function () {
         emit();
         return copySnapshot();
@@ -342,12 +342,12 @@ function createDefectNotifier(options) {
       body: "新增 " + count + " 个缺陷需修复",
       tag: tag
     }).then(function (result) {
-      snapshot.lastWindowsStatus = result && result.accepted
-        ? "已提交给 Windows 原生通知"
+      snapshot.lastSystemStatus = result && result.accepted
+        ? "已提交给系统原生通知"
         : showWebNotification(count, items);
     }).catch(function (error) {
       var fallback = showWebNotification(count, items);
-      snapshot.lastWindowsStatus = "原生通知失败；" + fallback + "（" + (error instanceof Error ? error.message : String(error)) + "）";
+      snapshot.lastSystemStatus = "原生通知失败；" + fallback + "（" + (error instanceof Error ? error.message : String(error)) + "）";
     }).then(function () {
       emit();
       return copySnapshot();
@@ -815,7 +815,7 @@ function createWorkspace(onRequestClose, notifier, services) {
     toggle.setAttribute("aria-label", "开启缺陷通知");
     var toggleWrap = node("label", "dyx-notify-toggle");
     var toggleCopy = node("span");
-    toggleCopy.append(node("strong", "", "Windows 系统通知"), node("div", "dyx-muted", "有新增缺陷时显示系统提醒"));
+    toggleCopy.append(node("strong", "", "系统原生通知"), node("div", "dyx-muted", "有新增缺陷时显示系统提醒（Windows Toast / macOS 通知中心）"));
     toggleWrap.append(toggleCopy, toggle);
 
     var assignee = node("select", "dyx-select");

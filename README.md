@@ -15,7 +15,7 @@ DeepSeek Harness 通用插件开发仓库。
 
 - Web 工作台集成在 Harness 侧栏，提供“缺陷”“流水线”“设置”三个页签；
 - 设置页可为当前项目绑定一个 DSH 工作区，“待确认/再次打开”的缺陷可从列表或详情一键“草稿/处理”到绑定工作区创建新的的会话（草稿只填入输入框不发送，处理直接发送）；
-- 支持 Windows 新缺陷提醒、流水线常用操作与两个只读模型工具（`yunxiao_list_defects`、`yunxiao_list_pipelines`）。
+- 支持 Windows/macOS 原生新缺陷提醒（自动识别平台并存储）、流水线常用操作与两个只读模型工具（`yunxiao_list_defects`、`yunxiao_list_pipelines`）。
 
 ## dsh-port
 

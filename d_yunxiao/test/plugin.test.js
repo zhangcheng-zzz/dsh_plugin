@@ -11,13 +11,19 @@ import {
   createApiClient,
   createJsonStore,
   createRpc,
+  detectNotificationChannel,
   extractStatuses,
   inlineFileIds,
   isNotifiableDefectStatus,
   mapDefect,
   mapPipelineRun,
   normalizeDefectNotification,
+  openMacNotificationSettings,
+  openSystemNotificationSettings,
   openWindowsNotificationSettings,
+  resolveSystemChannel,
+  showMacNotification,
+  showSystemNotification,
   showWindowsNotification
 } from "../dist/index.js";
 
@@ -52,7 +58,7 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(source, /defect\.notification\.scan/);
   assert.match(source, /new window\.Notification/);
   assert.match(source, /system\.notification\.show/);
-  assert.match(source, /已提交给 Windows 原生通知/);
+  assert.match(source, /已提交给系统原生通知/);
   assert.match(source, /__dsh_native_notification_bridge__/);
   assert.match(source, /requireInteraction: true/);
   assert.match(source, /Date\.now\(\)/);
@@ -65,7 +71,7 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   assert.match(source, /刷新缺陷检查/);
   assert.match(source, /dyx-notify-stats/);
   assert.match(source, /当前 " \+ noticeState\.lastResultCount \+ " 条未处理/);
-  assert.match(source, /lastWindowsStatus/);
+  assert.match(source, /lastSystemStatus/);
   assert.match(source, /options\.onOpen\(items \|\| \[\]\)/);
   assert.match(source, /function openNotifiedDefects/);
   assert.match(source, /openDefect\(values\[0\]\)/);
@@ -170,6 +176,132 @@ test("Windows notification helper starts a hidden native notifier with safe text
     accepted: false,
     channel: "unsupported"
   });
+});
+
+test("macOS notification helper spawns osascript with argv text transport", async () => {
+  let invocation;
+  let unrefCalled = false;
+  const child = new EventEmitter();
+  child.unref = () => { unrefCalled = true; };
+  const promise = showMacNotification("云效缺陷提醒", '新增 1 个 "缺陷" 需修复', {
+    spawnProcess(command, args, options) {
+      invocation = { command, args, options };
+      queueMicrotask(() => child.emit("spawn"));
+      return child;
+    }
+  });
+  const result = await promise;
+  assert.deepEqual(result, { supported: true, accepted: true, channel: "macos-osascript" });
+  assert.equal(invocation.command, "osascript");
+  assert.equal(invocation.args[0], "-e");
+  assert.match(invocation.args[1], /display notification \(item 2 of argv\) with title \(item 1 of argv\) sound name "default"/);
+  assert.deepEqual(invocation.args.slice(2), ["云效缺陷提醒", '新增 1 个 "缺陷" 需修复']);
+  assert.equal(invocation.options.stdio, "ignore");
+  assert.equal(unrefCalled, true);
+});
+
+test("macOS notification settings helper opens the notifications pane", async () => {
+  let invocation;
+  const child = new EventEmitter();
+  const resultPromise = openMacNotificationSettings({
+    spawnProcess(command, args) {
+      invocation = { command, args };
+      queueMicrotask(() => child.emit("spawn"));
+      return child;
+    }
+  });
+  assert.deepEqual(await resultPromise, { supported: true, accepted: true });
+  assert.equal(invocation.command, "open");
+  assert.deepEqual(invocation.args, ["x-apple.systempreferences:com.apple.preference.notifications"]);
+});
+
+test("notification channel is detected once and persisted until the platform changes", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "dsh-yunxiao-channel-"));
+  const store = createJsonStore(path.join(tempDir, "data.json"), 10);
+  try {
+    assert.equal(detectNotificationChannel("win32"), "windows-toast");
+    assert.equal(detectNotificationChannel("darwin"), "macos-osascript");
+    assert.equal(detectNotificationChannel("linux"), "none");
+
+    const first = await resolveSystemChannel(store, { platform: "darwin" });
+    assert.equal(first, "macos-osascript");
+    const stored = await store.getSystemInfo();
+    assert.equal(stored.platform, "darwin");
+    assert.equal(stored.channel, "macos-osascript");
+    assert.match(stored.detectedAt, /^\d{4}-\d{2}-\d{2}T/);
+
+    const second = await resolveSystemChannel(store, { platform: "darwin" });
+    assert.equal(second, "macos-osascript");
+    assert.equal((await store.getSystemInfo()).detectedAt, stored.detectedAt);
+
+    const changed = await resolveSystemChannel(store, { platform: "win32" });
+    assert.equal(changed, "windows-toast");
+    assert.equal((await store.getSystemInfo()).platform, "win32");
+
+    const reloaded = createJsonStore(path.join(tempDir, "data.json"), 10);
+    assert.equal((await reloaded.getSystemInfo()).channel, "windows-toast");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("system notification dispatcher routes by channel and reports unsupported otherwise", async () => {
+  const invocations = [];
+  const child = new EventEmitter();
+  child.unref = () => {};
+  const spawnProcess = (command, args) => {
+    invocations.push({ command, args });
+    queueMicrotask(() => child.emit("spawn"));
+    return child;
+  };
+  const mac = await showSystemNotification("t1", "b1", { channel: "macos-osascript", spawnProcess });
+  assert.equal(mac.channel, "macos-osascript");
+  const win = await showSystemNotification("t2", "b2", { channel: "windows-toast", platform: "win32", spawnProcess });
+  assert.equal(win.channel, "windows-toast");
+  assert.deepEqual(await showSystemNotification("t3", "b3", { channel: "none" }), {
+    supported: false,
+    accepted: false,
+    channel: "unsupported"
+  });
+  assert.deepEqual(invocations.map((item) => item.command), ["osascript", "powershell.exe"]);
+});
+
+test("system notification settings opener routes by channel", async () => {
+  const invocations = [];
+  const child = new EventEmitter();
+  child.unref = () => {};
+  const spawnProcess = (command, args) => {
+    invocations.push({ command, args });
+    queueMicrotask(() => child.emit("spawn"));
+    return child;
+  };
+  assert.deepEqual(await openSystemNotificationSettings({ channel: "macos-osascript", spawnProcess }), { supported: true, accepted: true });
+  assert.deepEqual(await openSystemNotificationSettings({ channel: "windows-toast", platform: "win32", spawnProcess }), { supported: true, accepted: true });
+  assert.deepEqual(await openSystemNotificationSettings({ channel: "none" }), { supported: false, accepted: false });
+  assert.deepEqual(invocations.map((item) => item.command), ["open", "explorer.exe"]);
+});
+
+test("rpc persists the notification channel and forwards it to the notifier", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "dsh-yunxiao-rpc-channel-"));
+  const store = createJsonStore(path.join(tempDir, "data.json"), 10);
+  try {
+    const calls = [];
+    const rpc = createRpc(store, {}, async (title, body, options) => {
+      calls.push(options);
+      return { supported: true, accepted: true, channel: options.channel };
+    });
+    const expected = detectNotificationChannel();
+    const result = await rpc("system.notification.show", { title: "云效缺陷提醒", body: "测试通知" });
+    assert.equal(result.channel, expected);
+    assert.equal(calls[0].channel, expected);
+    const stored = await store.getSystemInfo();
+    assert.equal(stored.platform, process.platform);
+    assert.equal(stored.channel, expected);
+    await rpc("system.notification.show", { title: "云效缺陷提醒", body: "再测一次" });
+    assert.equal(calls[1].channel, expected);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("plugin apply registers two tools and the Web RPC route", async (t) => {

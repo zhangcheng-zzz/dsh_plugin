@@ -80,7 +80,16 @@ function normalizeWorkspaceBinding(value) {
 }
 
 function emptyState() {
-  return { version: 1, selectedAccountId: "", accounts: [], cache: {} };
+  return { version: 1, selectedAccountId: "", accounts: [], cache: {}, system: null };
+}
+
+function normalizeSystemInfo(value) {
+  const source = value && typeof value === "object" ? value : null;
+  if (!source) return null;
+  const platform = cleanText(source.platform, 32);
+  const channel = cleanText(source.channel, 32);
+  if (!platform || !channel) return null;
+  return { platform, channel, detectedAt: cleanText(source.detectedAt, 40) };
 }
 
 function normalizeState(value) {
@@ -89,7 +98,8 @@ function normalizeState(value) {
     version: 1,
     selectedAccountId: cleanText(value.selectedAccountId, 100),
     accounts: Array.isArray(value.accounts) ? value.accounts.filter((item) => item && typeof item === "object") : [],
-    cache: value.cache && typeof value.cache === "object" ? value.cache : {}
+    cache: value.cache && typeof value.cache === "object" ? value.cache : {},
+    system: normalizeSystemInfo(value.system)
   };
 }
 
@@ -295,6 +305,18 @@ function createJsonStore(fileName, cacheMaxItems) {
     return state.cache[accountId]?.[key] || null;
   }
 
+  async function getSystemInfo() {
+    const state = await load();
+    return state.system;
+  }
+
+  async function saveSystemInfo(info) {
+    return update((state) => {
+      state.system = normalizeSystemInfo(info);
+      return state.system;
+    });
+  }
+
   return {
     absolutePath,
     load,
@@ -308,7 +330,9 @@ function createJsonStore(fileName, cacheMaxItems) {
     saveDefectNotification,
     saveWorkspaceBinding,
     putCache,
-    getCache
+    getCache,
+    getSystemInfo,
+    saveSystemInfo
   };
 }
 
@@ -1074,6 +1098,26 @@ function writeJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
+// 各平台的原生通知渠道。识别结果写入数据文件的 system 字段，
+// 后续通知直接复用，只在进程平台与记录不一致（如数据文件被搬迁）时重新识别。
+const SYSTEM_NOTIFICATION_CHANNELS = {
+  win32: "windows-toast",
+  darwin: "macos-osascript"
+};
+
+function detectNotificationChannel(platform = process.platform) {
+  return SYSTEM_NOTIFICATION_CHANNELS[platform] || "none";
+}
+
+async function resolveSystemChannel(store, options = {}) {
+  const platform = options.platform || process.platform;
+  const stored = await store.getSystemInfo();
+  if (stored && stored.platform === platform && stored.channel) return stored.channel;
+  const channel = detectNotificationChannel(platform);
+  await store.saveSystemInfo({ platform, channel, detectedAt: new Date().toISOString() });
+  return channel;
+}
+
 async function showWindowsNotification(title, body, options = {}) {
   const platform = options.platform || process.platform;
   if (platform !== "win32") return { supported: false, accepted: false, channel: "unsupported" };
@@ -1161,7 +1205,65 @@ async function openWindowsNotificationSettings(options = {}) {
   });
 }
 
-function createRpc(store, api, systemNotifier = showWindowsNotification, listWorkspaces = () => []) {
+async function showMacNotification(title, body, options = {}) {
+  const spawnProcess = options.spawnProcess || spawn;
+  const safeTitle = cleanText(title, 100) || "云效缺陷提醒";
+  const safeBody = cleanText(body, 500) || "有新的缺陷需要处理";
+  // 标题与正文经 argv 传入 run 处理器，避免拼进 AppleScript 源码带来转义问题。
+  // sound name "default" 播放系统默认通知音（跟随 系统设置→声音→提示音 的选择）；
+  // 也可改为 /System/Library/Sounds/ 下的具体音效名，如 Glass、Ping、Hero。
+  const script = "on run argv\n\ndisplay notification (item 2 of argv) with title (item 1 of argv) sound name \"default\"\n\nend run";
+  const child = spawnProcess("osascript", ["-e", script, safeTitle, safeBody], {
+    stdio: "ignore"
+  });
+  return new Promise((resolve, reject) => {
+    child.once("error", (error) => reject(new YunxiaoError(`macOS 原生通知启动失败：${error.message}`, 500)));
+    child.once("spawn", () => {
+      if (typeof child.unref === "function") child.unref();
+      resolve({ supported: true, accepted: true, channel: "macos-osascript" });
+    });
+  });
+}
+
+async function openMacNotificationSettings(options = {}) {
+  const spawnProcess = options.spawnProcess || spawn;
+  const child = spawnProcess("open", ["x-apple.systempreferences:com.apple.preference.notifications"], {
+    detached: true,
+    stdio: "ignore"
+  });
+  return new Promise((resolve, reject) => {
+    child.once("error", (error) => reject(new YunxiaoError(`macOS 通知设置打开失败：${error.message}`, 500)));
+    child.once("spawn", () => {
+      if (typeof child.unref === "function") child.unref();
+      resolve({ supported: true, accepted: true });
+    });
+  });
+}
+
+function systemNotifierFor(channel) {
+  if (channel === "windows-toast") return showWindowsNotification;
+  if (channel === "macos-osascript") return showMacNotification;
+  return null;
+}
+
+// 系统通知统一入口：渠道已明确时直接分发，否则按数据文件记录（无记录时即时探测）。
+async function showSystemNotification(title, body, options = {}) {
+  const channel = options.channel
+    || (options.store ? await resolveSystemChannel(options.store, { platform: options.platform }) : detectNotificationChannel(options.platform));
+  const notifier = systemNotifierFor(channel);
+  if (!notifier) return { supported: false, accepted: false, channel: "unsupported" };
+  return notifier(title, body, options);
+}
+
+async function openSystemNotificationSettings(options = {}) {
+  const channel = options.channel
+    || (options.store ? await resolveSystemChannel(options.store, { platform: options.platform }) : detectNotificationChannel(options.platform));
+  if (channel === "windows-toast") return openWindowsNotificationSettings(options);
+  if (channel === "macos-osascript") return openMacNotificationSettings(options);
+  return { supported: false, accepted: false };
+}
+
+function createRpc(store, api, systemNotifier = showSystemNotification, listWorkspaces = () => []) {
   async function accountAndProject(args) {
     const account = await store.getAccount(args.accountId);
     const projectId = cleanText(args.projectId || account.selectedProject?.id, 128);
@@ -1188,10 +1290,12 @@ function createRpc(store, api, systemNotifier = showWindowsNotification, listWor
     switch (method) {
       case "state.get":
         return store.publicState();
-      case "system.notification.show":
-        return systemNotifier(args.title, args.body, { tag: args.tag });
+      case "system.notification.show": {
+        const channel = await resolveSystemChannel(store);
+        return systemNotifier(args.title, args.body, { tag: args.tag, channel });
+      }
       case "system.notification.settings.open":
-        return openWindowsNotificationSettings();
+        return openSystemNotificationSettings({ channel: await resolveSystemChannel(store) });
       case "account.save":
         return store.saveAccount(args);
       case "account.select":
@@ -1454,7 +1558,7 @@ function apply(ctx, suppliedConfig = {}) {
     }
   }
 
-  const rpc = createRpc(store, api, showWindowsNotification, listHarnessWorkspaces);
+  const rpc = createRpc(store, api, showSystemNotification, listHarnessWorkspaces);
   registerTools(ctx, rpc, config.timeoutMs);
 
   ctx.inject(["webServer"], (httpCtx) => {
@@ -1488,6 +1592,7 @@ export {
   createApiClient,
   createJsonStore,
   createRpc,
+  detectNotificationChannel,
   extractStatuses,
   inlineFileIds,
   inject,
@@ -1496,7 +1601,13 @@ export {
   mapPipelineRun,
   isNotifiableDefectStatus,
   normalizeDefectNotification,
+  normalizeSystemInfo,
+  openMacNotificationSettings,
+  openSystemNotificationSettings,
   openWindowsNotificationSettings,
+  resolveSystemChannel,
+  showMacNotification,
+  showSystemNotification,
   showWindowsNotification,
   name
 };
