@@ -24,8 +24,53 @@ import {
   resolveSystemChannel,
   showMacNotification,
   showSystemNotification,
-  showWindowsNotification
+  showWindowsNotification,
+  writeClipboardImage
 } from "../dist/index.js";
+
+const TINY_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+function stubChild(exitCode) {
+  const child = new EventEmitter();
+  queueMicrotask(() => child.emit("close", exitCode));
+  return child;
+}
+
+test("clipboard.write_image validates data and writes via platform tools", async () => {
+  await assert.rejects(writeClipboardImage(""), /不能为空/);
+  await assert.rejects(writeClipboardImage("not base64!!!"), /格式不正确/);
+  await assert.rejects(
+    writeClipboardImage(Buffer.from("plain text").toString("base64"), { platform: "linux" }),
+    /无法解析/
+  );
+  // 不支持的平台返回 supported:false，客户端回退到浏览器剪贴板。
+  assert.equal((await writeClipboardImage(TINY_PNG_BASE64, { platform: "linux" })).supported, false);
+
+  // macOS：osascript 读取临时 PNG 写入剪贴板（spawn 打桩，不碰真实剪贴板）。
+  const macCalls = [];
+  const macResult = await writeClipboardImage(TINY_PNG_BASE64, {
+    platform: "darwin",
+    spawnProcess: (command, args) => { macCalls.push({ command, args }); return stubChild(0); }
+  });
+  assert.deepEqual(macResult, { supported: true, channel: "macos-osascript" });
+  assert.equal(macCalls[0].command, "osascript");
+  assert.match(macCalls[0].args[1], /«class PNGf»/);
+  await assert.rejects(
+    writeClipboardImage(TINY_PNG_BASE64, { platform: "darwin", spawnProcess: () => stubChild(1) }),
+    /退出码 1/
+  );
+
+  // Windows：powershell STA 编码命令里带 SetImage。
+  const winCalls = [];
+  const winResult = await writeClipboardImage(TINY_PNG_BASE64, {
+    platform: "win32",
+    spawnProcess: (command, args) => { winCalls.push({ command, args }); return stubChild(0); }
+  });
+  assert.deepEqual(winResult, { supported: true, channel: "windows-clipboard" });
+  assert.equal(winCalls[0].command, "powershell.exe");
+  const decoded = Buffer.from(winCalls[0].args.at(-1), "base64").toString("utf16le");
+  assert.match(decoded, /Clipboard\]::SetImage/);
+});
 
 test("client uses the native sidebar trigger and a stable reserved right panel", async () => {
   const source = await readFile(new URL("../dist/client.js", import.meta.url), "utf8");

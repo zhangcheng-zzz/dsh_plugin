@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { tmpdir } from "node:os";
 
 const name = "dsh-yunxiao";
 const inject = ["tools"];
@@ -1263,6 +1264,92 @@ async function openSystemNotificationSettings(options = {}) {
   return { supported: false, accepted: false };
 }
 
+// —— 剪贴板图片写入 ——————————————————————————————————————————————————
+// 插件进程里拿不到 Electron API（desktop-host 把 Electron 二进制当 Node 跑），
+// 渲染进程的异步剪贴板又可能被权限/焦点拒绝，所以借系统工具写剪贴板：
+// macOS 用 osascript 读 PNG 进剪贴板（与原生通知同一通道），Windows 用
+// PowerShell Forms（与原生通知同一 STA 模式）。其余平台返回 supported:false，
+// 客户端回退到 navigator.clipboard。
+const CLIPBOARD_IMAGE_MAX_BASE64 = 30_000_000;
+
+function runClipboardChild(spawnProcess, command, args, env) {
+  return new Promise((resolve, reject) => {
+    const child = spawnProcess(command, args, { stdio: "ignore", windowsHide: true, env: { ...process.env, ...env } });
+    const timer = setTimeout(() => reject(new YunxiaoError("剪贴板命令执行超时", 504)), 10_000);
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      reject(new YunxiaoError(`剪贴板命令启动失败：${error instanceof Error ? error.message : String(error)}`, 500));
+    });
+    child.once("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve();
+      else reject(new YunxiaoError(`剪贴板命令执行失败（退出码 ${code}）`, 500));
+    });
+  });
+}
+
+async function writeMacClipboardImage(buffer, spawnProcess) {
+  const file = path.join(tmpdir(), `dsh-yunxiao-clipboard-${process.pid}-${Date.now()}.png`);
+  await writeFile(file, buffer);
+  try {
+    // «class PNGf» 把 PNG 数据原样放进剪贴板，粘贴端拿到的就是图片。
+    await runClipboardChild(spawnProcess, "osascript", ["-e", `set the clipboard to (read (POSIX file "${file}") as «class PNGf»)`]);
+  } finally {
+    await rm(file, { force: true });
+  }
+}
+
+async function writeWindowsClipboardImage(buffer, spawnProcess) {
+  const file = path.join(tmpdir(), `dsh-yunxiao-clipboard-${process.pid}-${Date.now()}.png`);
+  await writeFile(file, buffer);
+  const script = String.raw`
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$image = [System.Drawing.Image]::FromFile($env:DYX_CLIPBOARD_FILE)
+[System.Windows.Forms.Clipboard]::SetImage($image)
+`;
+  try {
+    await runClipboardChild(spawnProcess, "powershell.exe", [
+      "-NoLogo", "-NoProfile", "-NonInteractive", "-Sta", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass",
+      "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")
+    ], { DYX_CLIPBOARD_FILE: file });
+  } finally {
+    await rm(file, { force: true });
+  }
+}
+
+async function writeClipboardImage(data, options = {}) {
+  const base64 = String(data ?? "").replace(/^data:image\/[a-z.+]+;base64,/i, "").replace(/\s+/g, "");
+  if (!base64) throw new YunxiaoError("剪贴板图片数据不能为空", 422);
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64) || base64.length > CLIPBOARD_IMAGE_MAX_BASE64) {
+    throw new YunxiaoError("剪贴板图片数据格式不正确", 422);
+  }
+  const buffer = Buffer.from(base64, "base64");
+  // 客户端统一发 PNG；校验魔数，避免把解析失败的垃圾数据写进剪贴板。
+  if (buffer.length < 8 || buffer[0] !== 0x89 || buffer[1] !== 0x50 || buffer[2] !== 0x4e || buffer[3] !== 0x47) {
+    throw new YunxiaoError("剪贴板图片数据无法解析", 422);
+  }
+  const platform = options.platform || process.platform;
+  const spawnProcess = options.spawnProcess || spawn;
+  if (platform === "darwin") {
+    await writeMacClipboardImage(buffer, spawnProcess);
+    return { supported: true, channel: "macos-osascript" };
+  }
+  if (platform === "win32") {
+    await writeWindowsClipboardImage(buffer, spawnProcess);
+    return { supported: true, channel: "windows-clipboard" };
+  }
+  return { supported: false, reason: "当前平台不支持宿主侧写剪贴板" };
+}
+
+async function clipboardStatus() {
+  return {
+    platform: process.platform,
+    supported: process.platform === "darwin" || process.platform === "win32"
+  };
+}
+
 function createRpc(store, api, systemNotifier = showSystemNotification, listWorkspaces = () => []) {
   async function accountAndProject(args) {
     const account = await store.getAccount(args.accountId);
@@ -1294,6 +1381,10 @@ function createRpc(store, api, systemNotifier = showSystemNotification, listWork
         const channel = await resolveSystemChannel(store);
         return systemNotifier(args.title, args.body, { tag: args.tag, channel });
       }
+      case "clipboard.write_image":
+        return writeClipboardImage(args.data);
+      case "clipboard.status":
+        return clipboardStatus();
       case "system.notification.settings.open":
         return openSystemNotificationSettings({ channel: await resolveSystemChannel(store) });
       case "account.save":
@@ -1571,7 +1662,8 @@ function apply(ctx, suppliedConfig = {}) {
           return;
         }
         try {
-          const body = await readJsonBody(req);
+          // clipboard.write_image 携带 base64 图片（最大约 22MB 二进制），放宽请求体上限。
+          const body = await readJsonBody(req, 40_000_000);
           const data = await rpc(cleanText(body.method, 100), body.args || {});
           writeJson(res, 200, { ok: true, data });
         } catch (error) {
@@ -1609,5 +1701,6 @@ export {
   showMacNotification,
   showSystemNotification,
   showWindowsNotification,
+  writeClipboardImage,
   name
 };

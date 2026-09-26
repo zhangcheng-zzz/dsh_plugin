@@ -601,6 +601,11 @@ function createWorkspace(onRequestClose, notifier, services) {
     }, extra || {});
   }
 
+  // 顶层工具（图片预览/复制等）拿不到闭包里的 rpcArgs，由这里桥接当前账号与项目。
+  function callRpc(method, args) {
+    return rpc(method, rpcArgs(args));
+  }
+
   function projectScope() {
     var account = selectedAccount();
     var project = selectedProject();
@@ -1511,7 +1516,7 @@ function createWorkspace(onRequestClose, notifier, services) {
     dialog.body.append(meta);
     if (detail.warning) dialog.body.append(node("div", "dyx-note", detail.warning));
     dialog.body.append(node("h3", "", "描述"));
-    var rich = node("div", "dyx-rich"); renderRich(rich, detail.description || "", detail.descriptionFormat || "RICHTEXT", detail.attachments || [], item.id); dialog.body.append(rich);
+    var rich = node("div", "dyx-rich"); renderRich(rich, detail.description || "", detail.descriptionFormat || "RICHTEXT", detail.attachments || [], item.id, callRpc); dialog.body.append(rich);
     if (detail.attachments && detail.attachments.length) {
       dialog.body.append(node("h3", "", "附件"));
       var files = node("div", "dyx-attachments");
@@ -1562,7 +1567,7 @@ function createWorkspace(onRequestClose, notifier, services) {
       detail.comments.forEach(function (comment) {
         var card = node("div", "dyx-comment");
         var head = node("div", "dyx-comment-head"); head.append(node("strong", "", comment.userName || "匿名"), node("span", "", formatDate(comment.gmtCreate)));
-        var content = node("div", "dyx-rich"); renderRich(content, comment.content || "", comment.contentFormat || "RICHTEXT", detail.attachments || [], item.id);
+        var content = node("div", "dyx-rich"); renderRich(content, comment.content || "", comment.contentFormat || "RICHTEXT", detail.attachments || [], item.id, callRpc);
         card.append(head, content); comments.append(card);
       });
       dialog.body.append(comments);
@@ -1609,7 +1614,7 @@ function createWorkspace(onRequestClose, notifier, services) {
   function previewDefectAttachment(defect, file) {
     var fallback = safeUrl(file.url, true);
     function use(url) {
-      openImagePreview({ url: url, name: file.fileName || "图片", defectId: defect.id, fileId: file.fileId });
+      openImagePreview({ url: url, name: file.fileName || "图片", defectId: defect.id, fileId: file.fileId, callRpc: callRpc });
     }
     if (!file.fileId) {
       if (fallback) use(fallback);
@@ -1942,16 +1947,73 @@ function blobToPngBlob(blob) {
   });
 }
 
-function writeImageToClipboard(pngBlob) {
-  if (!navigator.clipboard || typeof ClipboardItem === "undefined") {
-    return Promise.reject(new Error("当前环境不支持写入图片剪贴板，请改用下载"));
-  }
-  return navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]).catch(function (error) {
-    throw new Error("复制被拒绝：" + (error instanceof Error ? error.message : String(error)));
+function blobToBase64(blob) {
+  return new Promise(function (resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var text = String(reader.result || "");
+      var index = text.indexOf(",");
+      resolve(index >= 0 ? text.slice(index + 1) : text);
+    };
+    reader.onerror = function () { reject(new Error("图片数据读取失败")); };
+    reader.readAsDataURL(blob);
   });
 }
 
-// info: { url, name, defectId, fileId }；fileId 缺失或宿主取图失败时退回直接 fetch。
+// 最后的兜底：把图片放进离屏可编辑区并选中，走 execCommand("copy") 旧式复制。
+// 该路径不经过异步剪贴板的权限检查，只要文档持有用户手势即可。
+function copyImageViaSelection(dataUrl) {
+  return new Promise(function (resolve, reject) {
+    var holder = document.createElement("div");
+    holder.contentEditable = "true";
+    holder.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;opacity:0";
+    var image = new Image();
+    image.onload = function () {
+      holder.append(image);
+      document.body.append(holder);
+      var range = document.createRange();
+      range.selectNodeContents(holder);
+      var selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      var copied = false;
+      try { copied = document.execCommand("copy"); } catch (error) { copied = false; }
+      selection.removeAllRanges();
+      holder.remove();
+      if (copied) resolve();
+      else reject(new Error("当前环境不支持写入图片剪贴板，请改用下载"));
+    };
+    image.onerror = function () { reject(new Error("当前环境不支持写入图片剪贴板，请改用下载")); };
+    image.src = dataUrl;
+  });
+}
+
+// PNG blob 写入剪贴板，三级回退：
+// 1) 桌面端宿主用系统工具写剪贴板（macOS osascript / Windows PowerShell），与渲染进程权限无关；
+// 2) navigator.clipboard（web profile、普通浏览器）；
+// 3) execCommand 选中图片复制。
+// callRpc 由调用方传入（闭包内桥接 rpcArgs）；仅浏览器环境（web profile）下可为空。
+function writeImageToClipboard(pngBlob, callRpc) {
+  return blobToBase64(pngBlob).then(function (base64) {
+    var hostTask = callRpc
+      ? callRpc("clipboard.write_image", { data: base64 }).then(function (result) {
+          return Boolean(result && result.supported);
+        }, function () { return false; })
+      : Promise.resolve(false);
+    return hostTask.then(function (hostWritten) {
+      if (hostWritten) return;
+      var dataUrl = "data:image/png;base64," + base64;
+      if (navigator.clipboard && typeof ClipboardItem !== "undefined") {
+        return navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]).catch(function () {
+          return copyImageViaSelection(dataUrl);
+        });
+      }
+      return copyImageViaSelection(dataUrl);
+    });
+  });
+}
+
+// info: { url, name, defectId, fileId, callRpc }；fileId 缺失或宿主取图失败时退回直接 fetch。
 function copyImageToClipboard(info) {
   var viaFetch = function () {
     return fetch(info.url, { cache: "no-store" }).then(function (response) {
@@ -1959,13 +2021,13 @@ function copyImageToClipboard(info) {
       return response.blob();
     }).then(blobToPngBlob);
   };
-  var task = info.defectId && info.fileId
-    ? rpc("defect.attachment.data", rpcArgs({ defectId: info.defectId, fileId: info.fileId })).then(function (result) {
+  var task = info.defectId && info.fileId && info.callRpc
+    ? info.callRpc("defect.attachment.data", { defectId: info.defectId, fileId: info.fileId }).then(function (result) {
         if (!result || !result.data) throw new Error("宿主未返回图片数据");
         return blobToPngBlob(base64ToBlob(result.data, result.mediaType));
       }).catch(viaFetch)
     : viaFetch();
-  return task.then(function (pngBlob) { return writeImageToClipboard(pngBlob); });
+  return task.then(function (pngBlob) { return writeImageToClipboard(pngBlob, info.callRpc); });
 }
 
 function copyDefectImage(getInfo) {
@@ -1996,9 +2058,9 @@ function openImagePreview(info) {
   image.src = info.url;
   // 直链时效性：预览图加载失败且有附件 ID 时，实时换取 base64 重试一次。
   image.addEventListener("error", function () {
-    if (!info.defectId || !info.fileId || image.dataset.refreshed) return;
+    if (!info.defectId || !info.fileId || !info.callRpc || image.dataset.refreshed) return;
     image.dataset.refreshed = "1";
-    rpc("defect.attachment.data", rpcArgs({ defectId: info.defectId, fileId: info.fileId })).then(function (result) {
+    info.callRpc("defect.attachment.data", { defectId: info.defectId, fileId: info.fileId }).then(function (result) {
       if (result && result.data) image.src = "data:" + (result.mediaType || "image/png") + ";base64," + result.data;
     }).catch(function () {});
   });
@@ -2006,9 +2068,9 @@ function openImagePreview(info) {
   image.addEventListener("click", function (event) { event.stopPropagation(); stage.classList.toggle("dyx-zoom"); });
   image.addEventListener("contextmenu", function (event) {
     event.preventDefault(); event.stopPropagation();
-    openImageContextMenu(event, function () { return { url: image.src, name: info.name, defectId: info.defectId, fileId: info.fileId }; });
+    openImageContextMenu(event, function () { return { url: image.src, name: info.name, defectId: info.defectId, fileId: info.fileId, callRpc: info.callRpc }; });
   });
-  var copyInfo = function () { return { url: image.src, name: info.name, defectId: info.defectId, fileId: info.fileId }; };
+  var copyInfo = function () { return { url: image.src, name: info.name, defectId: info.defectId, fileId: info.fileId, callRpc: info.callRpc }; };
   var actions = node("div", "dyx-lightbox-actions");
   var copyBtn = button("复制图片", "", function () { copyDefectImage(copyInfo); });
   var downloadBtn = button("下载", "", function () { downloadFile(image.src, info.name); });
@@ -2070,9 +2132,9 @@ function openImageContextMenu(event, getInfo) {
 }
 
 // 详情/评论里的图片统一接入：左键预览、右键菜单。src 可能在加载失败后被刷新，
-// 因此复制/下载时实时读取当前 src。
-function wireDefectImage(element, defectId, fileId, name) {
-  var getInfo = function () { return { url: element.src, name: name, defectId: defectId, fileId: fileId }; };
+// 因此复制/下载时实时读取当前 src。callRpc 用于宿主侧取图/写剪贴板。
+function wireDefectImage(element, defectId, fileId, name, callRpc) {
+  var getInfo = function () { return { url: element.src, name: name, defectId: defectId, fileId: fileId, callRpc: callRpc }; };
   element.addEventListener("click", function (event) { event.preventDefault(); openImagePreview(getInfo()); });
   element.addEventListener("contextmenu", function (event) {
     event.preventDefault(); event.stopPropagation();
@@ -2104,7 +2166,7 @@ function richSource(content, format) {
   } catch (error) { return text; }
 }
 
-function renderRich(container, content, format, attachments, defectId) {
+function renderRich(container, content, format, attachments, defectId, callRpc) {
   if (!String(content || "").trim()) { container.append(node("div", "dyx-muted", "暂无内容")); return; }
   var template = document.createElement("template"); template.innerHTML = richSource(content, format);
   Array.from(template.content.querySelectorAll("*")).forEach(function (element) {
@@ -2116,9 +2178,9 @@ function renderRich(container, content, format, attachments, defectId) {
         element.setAttribute("src", attachment.url);
         // 云效文件直链有时效性，加载失败时实时换取新的下载地址重试一次。
         element.addEventListener("error", function () {
-          if (!defectId || !attachment.fileId || element.dataset.refreshed) return;
+          if (!defectId || !attachment.fileId || !callRpc || element.dataset.refreshed) return;
           element.dataset.refreshed = "1";
-          rpc("defect.attachment.link", rpcArgs({ defectId: defectId, fileId: attachment.fileId })).then(function (result) {
+          callRpc("defect.attachment.link", { defectId: defectId, fileId: attachment.fileId }).then(function (result) {
             var url = safeUrl(result && result.url);
             if (url) element.setAttribute("src", url);
           }).catch(function () {});
@@ -2127,7 +2189,7 @@ function renderRich(container, content, format, attachments, defectId) {
     }
     var allowed = TAG_ATTRS[element.tagName] || new Set();
     Array.from(element.attributes).forEach(function (attr) { if (!SHARED_ATTRS.has(attr.name) && !allowed.has(attr.name)) element.removeAttribute(attr.name); });
-    if (element.tagName === "IMG") { var src = safeUrl(element.getAttribute("src"), true); if (!src) { element.remove(); return; } element.src = src; element.loading = "lazy"; wireDefectImage(element, defectId || "", (attachment && attachment.fileId) || "", (attachment && attachment.fileName) || element.getAttribute("alt") || "图片"); }
+    if (element.tagName === "IMG") { var src = safeUrl(element.getAttribute("src"), true); if (!src) { element.remove(); return; } element.src = src; element.loading = "lazy"; wireDefectImage(element, defectId || "", (attachment && attachment.fileId) || "", (attachment && attachment.fileName) || element.getAttribute("alt") || "图片", callRpc); }
     if (element.tagName === "A") { var href = safeUrl(element.getAttribute("href")); if (!href) element.removeAttribute("href"); else { element.href = href; element.target = "_blank"; element.rel = "noopener noreferrer"; } }
   });
   container.append(template.content);
