@@ -80,6 +80,20 @@ var CSS = [
   ".dyx-toast-wrap{position:absolute;z-index:60;left:14px;bottom:14px;display:grid;gap:8px;pointer-events:none}.dyx-toast{max-width:340px;padding:10px 14px;border:0;border-radius:12px;background:var(--dyx-panel);box-shadow:var(--dyx-shadow);font-size:13px}.dyx-toast.error{color:var(--dyx-danger)}",
   ".dyx-global-notice{position:fixed;z-index:2147483000;right:22px;top:22px;width:min(380px,calc(100vw - 44px));padding:14px 16px;border:0;border-radius:14px;color:var(--dyx-text);background:var(--dyx-panel);box-shadow:var(--dyx-shadow);font:13.5px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;animation:dyx-slide-in .18s ease-out}.dyx-global-notice strong{display:block;margin-bottom:2px;font-size:14px;font-weight:650}.dyx-global-notice span{display:block;color:var(--dyx-muted);font-size:12.5px}.dyx-global-notice-actions{margin-top:10px;display:flex;justify-content:flex-end;gap:8px}.dyx-global-notice-actions button{min-height:29px;padding:4px 12px;border:0;border-radius:9px;color:var(--dyx-text);background:var(--dyx-tag);cursor:pointer;font:inherit;font-size:12.5px}.dyx-global-notice-actions button:hover{background:var(--dyx-hover)}.dyx-global-notice-actions button.primary{color:#fff;background:var(--dyx-brand-solid)}",
   ".dyx-loading{opacity:.6;pointer-events:none}.dyx-stale{margin-bottom:10px;padding:9px 12px;border-radius:11px;color:var(--dyx-warn);background:var(--dyx-warn-weak);font-size:12.5px}",
+  // 缺陷图片：点击全屏预览（暗色遮罩层），右键自定义菜单（预览/复制/下载）。
+  ".dyx-rich img{cursor:zoom-in}",
+  ".dyx-lightbox{position:fixed;inset:0;z-index:2147483600;display:flex;flex-direction:column;background:rgba(9,12,20,.88);animation:dyx-fade-in .16s ease-out}",
+  ".dyx-lightbox-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;flex:none}",
+  ".dyx-lightbox-bar strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#eef2f9;font-size:13px;font-weight:600}",
+  ".dyx-lightbox-actions{display:flex;flex:none;gap:8px}",
+  ".dyx-lightbox .dyx-btn{color:#fff;background:rgba(255,255,255,.14)}.dyx-lightbox .dyx-btn:hover{background:rgba(255,255,255,.24)}",
+  ".dyx-lightbox-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:auto;padding:0 16px 16px}",
+  ".dyx-lightbox-stage img{max-width:100%;max-height:100%;border-radius:10px;box-shadow:0 10px 48px rgba(0,0,0,.5);cursor:zoom-out}",
+  ".dyx-lightbox-stage.dyx-zoom img{max-width:none;max-height:none;cursor:zoom-in}",
+  ".dyx-ctxmenu{position:fixed;z-index:2147483700;min-width:124px;padding:5px;border-radius:11px;background:var(--dyx-panel);box-shadow:var(--dyx-shadow)}",
+  ".dyx-ctxmenu button{display:block;width:100%;min-height:29px;padding:5px 11px;border:0;border-radius:8px;background:transparent;color:var(--dyx-text);cursor:pointer;text-align:left;font:inherit;font-size:12.5px}",
+  ".dyx-ctxmenu button:hover{background:var(--dyx-hover)}",
+  "@keyframes dyx-fade-in{from{opacity:0}to{opacity:1}}",
   "@container(max-width:430px){.dyx-main{padding:12px 14px 20px}.dyx-notify-grid,.dyx-project-row{grid-template-columns:1fr}.dyx-defect-filters .dyx-field{width:140px}.dyx-pipeline-filters .dyx-field{width:150px}.dyx-defect-row .dyx-inline-status{width:88px}.dyx-defect-row-assignee{max-width:96px}.dyx-title{display:block}.dyx-title>.dyx-btn,.dyx-title>.dyx-actions{margin-top:8px}.dyx-modal-body{padding:12px}.dyx-head{flex-wrap:wrap;gap:8px;padding:8px 10px 8px 14px}.dyx-nav{order:3;width:100%}.dyx-nav button{flex:1;min-height:30px;padding:5px 10px;font-size:12.5px}.dyx-status-row{align-items:stretch;flex-direction:column}.dyx-status-row .dyx-field{min-width:0;width:auto}}",
   "@media(max-width:760px){.dyx-preview-host{inset:0;width:100%;border-radius:0}}"
 ].join("");
@@ -1564,6 +1578,7 @@ function createWorkspace(onRequestClose, notifier, services) {
     label.title = (file.fileName || "附件") + (size ? "（" + size + "）" : "");
     row.append(label);
     if (size) row.append(node("span", "dyx-attachment-size", size));
+    if (fileImageMediaType(file)) row.append(button("预览", "dyx-btn-sm", function () { previewDefectAttachment(defect, file); }));
     row.append(button("打开", "dyx-btn-sm", function () { openAttachment(defect, file, "open"); }));
     row.append(button("下载", "dyx-btn-sm", function () { openAttachment(defect, file, "download"); }));
     return row;
@@ -1582,6 +1597,27 @@ function createWorkspace(onRequestClose, notifier, services) {
     }
     rpc("defect.attachment.link", rpcArgs({ defectId: defect.id, fileId: file.fileId })).then(function (result) {
       var url = safeUrl(result && result.url);
+      if (!url) throw new Error("云效未返回可用的附件下载地址");
+      use(url);
+    }).catch(function (error) {
+      if (fallback) { use(fallback); return; }
+      toast(error instanceof Error ? error.message : String(error), true);
+    });
+  }
+
+  // 图片附件在插件内预览（不依赖外部浏览器）；预览层自带过期重试。
+  function previewDefectAttachment(defect, file) {
+    var fallback = safeUrl(file.url, true);
+    function use(url) {
+      openImagePreview({ url: url, name: file.fileName || "图片", defectId: defect.id, fileId: file.fileId });
+    }
+    if (!file.fileId) {
+      if (fallback) use(fallback);
+      else toast("该附件缺少下载地址", true);
+      return;
+    }
+    rpc("defect.attachment.link", rpcArgs({ defectId: defect.id, fileId: file.fileId })).then(function (result) {
+      var url = safeUrl(result && result.url, true);
       if (!url) throw new Error("云效未返回可用的附件下载地址");
       use(url);
     }).catch(function (error) {
@@ -1872,6 +1908,178 @@ function downloadFile(url, fileName) {
   });
 }
 
+// —— 缺陷图片预览与右键复制 ————————————————————————————————————————————
+// 桌面端宿主没有统一的图片右键菜单/预览能力（Mac 上右键无反应），由插件自己实现：
+// 点击富文本图片 → 全屏预览层；右键 → 预览/复制图片/下载菜单。
+// 复制优先走宿主 RPC 换取 base64（无跨域限制），退回直接 fetch，统一转 PNG 后写剪贴板。
+
+function base64ToBlob(data, mediaType) {
+  var binary = atob(String(data || ""));
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mediaType || "image/png" });
+}
+
+function blobToPngBlob(blob) {
+  return new Promise(function (resolve, reject) {
+    var url = URL.createObjectURL(blob);
+    var image = new Image();
+    image.onload = function () {
+      try {
+        var canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth || image.width;
+        canvas.height = image.naturalHeight || image.height;
+        if (!canvas.width || !canvas.height) throw new Error("图片尺寸异常");
+        canvas.getContext("2d").drawImage(image, 0, 0);
+        canvas.toBlob(function (png) {
+          URL.revokeObjectURL(url);
+          if (png) resolve(png); else reject(new Error("图片转码 PNG 失败"));
+        }, "image/png");
+      } catch (error) { URL.revokeObjectURL(url); reject(error instanceof Error ? error : new Error(String(error))); }
+    };
+    image.onerror = function () { URL.revokeObjectURL(url); reject(new Error("图片解码失败")); };
+    image.src = url;
+  });
+}
+
+function writeImageToClipboard(pngBlob) {
+  if (!navigator.clipboard || typeof ClipboardItem === "undefined") {
+    return Promise.reject(new Error("当前环境不支持写入图片剪贴板，请改用下载"));
+  }
+  return navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]).catch(function (error) {
+    throw new Error("复制被拒绝：" + (error instanceof Error ? error.message : String(error)));
+  });
+}
+
+// info: { url, name, defectId, fileId }；fileId 缺失或宿主取图失败时退回直接 fetch。
+function copyImageToClipboard(info) {
+  var viaFetch = function () {
+    return fetch(info.url, { cache: "no-store" }).then(function (response) {
+      if (!response.ok) throw new Error("下载图片失败（HTTP " + response.status + "）");
+      return response.blob();
+    }).then(blobToPngBlob);
+  };
+  var task = info.defectId && info.fileId
+    ? rpc("defect.attachment.data", rpcArgs({ defectId: info.defectId, fileId: info.fileId })).then(function (result) {
+        if (!result || !result.data) throw new Error("宿主未返回图片数据");
+        return blobToPngBlob(base64ToBlob(result.data, result.mediaType));
+      }).catch(viaFetch)
+    : viaFetch();
+  return task.then(function (pngBlob) { return writeImageToClipboard(pngBlob); });
+}
+
+function copyDefectImage(getInfo) {
+  toast("正在复制图片…");
+  copyImageToClipboard(getInfo()).then(function () {
+    toast("图片已复制到剪贴板");
+  }).catch(function (error) {
+    toast(error instanceof Error ? error.message : String(error), true);
+  });
+}
+
+var lightboxState = null;
+
+function closeImagePreview() {
+  if (!lightboxState) return;
+  document.removeEventListener("keydown", lightboxState.onKeydown, true);
+  lightboxState.overlay.remove();
+  lightboxState = null;
+}
+
+function openImagePreview(info) {
+  closeImagePreview();
+  closeImageMenu();
+  var overlay = node("div", "dyx-lightbox");
+  var stage = node("div", "dyx-lightbox-stage");
+  var image = new Image();
+  image.alt = info.name || "图片预览";
+  image.src = info.url;
+  // 直链时效性：预览图加载失败且有附件 ID 时，实时换取 base64 重试一次。
+  image.addEventListener("error", function () {
+    if (!info.defectId || !info.fileId || image.dataset.refreshed) return;
+    image.dataset.refreshed = "1";
+    rpc("defect.attachment.data", rpcArgs({ defectId: info.defectId, fileId: info.fileId })).then(function (result) {
+      if (result && result.data) image.src = "data:" + (result.mediaType || "image/png") + ";base64," + result.data;
+    }).catch(function () {});
+  });
+  // 点击图片在“适应窗口 / 原始大小”间切换。
+  image.addEventListener("click", function (event) { event.stopPropagation(); stage.classList.toggle("dyx-zoom"); });
+  image.addEventListener("contextmenu", function (event) {
+    event.preventDefault(); event.stopPropagation();
+    openImageContextMenu(event, function () { return { url: image.src, name: info.name, defectId: info.defectId, fileId: info.fileId }; });
+  });
+  var copyInfo = function () { return { url: image.src, name: info.name, defectId: info.defectId, fileId: info.fileId }; };
+  var actions = node("div", "dyx-lightbox-actions");
+  var copyBtn = button("复制图片", "", function () { copyDefectImage(copyInfo); });
+  var downloadBtn = button("下载", "", function () { downloadFile(image.src, info.name); });
+  var closeBtn = button("关闭", "", closeImagePreview);
+  actions.append(copyBtn, downloadBtn, closeBtn);
+  var bar = node("div", "dyx-lightbox-bar");
+  bar.append(node("strong", "", info.name || "图片预览"), actions);
+  stage.append(image);
+  overlay.append(bar, stage);
+  overlay.addEventListener("click", function (event) {
+    if (event.target === overlay || event.target === stage) closeImagePreview();
+  });
+  var onKeydown = function (event) {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    closeImagePreview();
+  };
+  document.addEventListener("keydown", onKeydown, true);
+  document.body.append(overlay);
+  lightboxState = { overlay: overlay, onKeydown: onKeydown };
+}
+
+var imageMenuEl = null;
+
+function closeImageMenu() {
+  if (!imageMenuEl) return;
+  imageMenuEl.remove();
+  imageMenuEl = null;
+  document.removeEventListener("click", closeImageMenu, true);
+  document.removeEventListener("contextmenu", closeImageMenu, true);
+  window.removeEventListener("blur", closeImageMenu);
+  window.removeEventListener("resize", closeImageMenu);
+}
+
+function openImageContextMenu(event, getInfo) {
+  closeImageMenu();
+  var menu = node("div", "dyx-ctxmenu");
+  [
+    ["预览图片", function () { openImagePreview(getInfo()); }],
+    ["复制图片", function () { copyDefectImage(getInfo); }],
+    ["下载图片", function () { var info = getInfo(); downloadFile(info.url, info.name); }]
+  ].forEach(function (item) {
+    var entry = node("button", "", item[0]);
+    entry.addEventListener("click", function () { closeImageMenu(); item[1](); });
+    menu.append(entry);
+  });
+  document.body.append(menu);
+  var rect = menu.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(event.clientX, window.innerWidth - rect.width - 8)) + "px";
+  menu.style.top = Math.max(8, Math.min(event.clientY, window.innerHeight - rect.height - 8)) + "px";
+  imageMenuEl = menu;
+  setTimeout(function () {
+    if (!imageMenuEl) return;
+    document.addEventListener("click", closeImageMenu, true);
+    document.addEventListener("contextmenu", closeImageMenu, true);
+    window.addEventListener("blur", closeImageMenu);
+    window.addEventListener("resize", closeImageMenu);
+  }, 0);
+}
+
+// 详情/评论里的图片统一接入：左键预览、右键菜单。src 可能在加载失败后被刷新，
+// 因此复制/下载时实时读取当前 src。
+function wireDefectImage(element, defectId, fileId, name) {
+  var getInfo = function () { return { url: element.src, name: name, defectId: defectId, fileId: fileId }; };
+  element.addEventListener("click", function (event) { event.preventDefault(); openImagePreview(getInfo()); });
+  element.addEventListener("contextmenu", function (event) {
+    event.preventDefault(); event.stopPropagation();
+    openImageContextMenu(event, getInfo);
+  });
+}
+
 function appendJsonMl(parent, value) {
   if (value === null || value === undefined || value === false) return;
   if (typeof value === "string" || typeof value === "number") { parent.append(document.createTextNode(String(value))); return; }
@@ -1919,7 +2127,7 @@ function renderRich(container, content, format, attachments, defectId) {
     }
     var allowed = TAG_ATTRS[element.tagName] || new Set();
     Array.from(element.attributes).forEach(function (attr) { if (!SHARED_ATTRS.has(attr.name) && !allowed.has(attr.name)) element.removeAttribute(attr.name); });
-    if (element.tagName === "IMG") { var src = safeUrl(element.getAttribute("src"), true); if (!src) { element.remove(); return; } element.src = src; element.loading = "lazy"; }
+    if (element.tagName === "IMG") { var src = safeUrl(element.getAttribute("src"), true); if (!src) { element.remove(); return; } element.src = src; element.loading = "lazy"; wireDefectImage(element, defectId || "", (attachment && attachment.fileId) || "", (attachment && attachment.fileName) || element.getAttribute("alt") || "图片"); }
     if (element.tagName === "A") { var href = safeUrl(element.getAttribute("href")); if (!href) element.removeAttribute("href"); else { element.href = href; element.target = "_blank"; element.rel = "noopener noreferrer"; } }
   });
   container.append(template.content);
@@ -1931,16 +2139,20 @@ function renderRich(container, content, format, attachments, defectId) {
 var IMAGE_MEDIA_TYPE_BY_SUFFIX = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
 var HANDLE_IMAGE_LIMIT = 8;
 
+function fileImageMediaType(file) {
+  if (!file) return "";
+  var suffix = String(file.suffix || "").replace(/^\./, "").toLowerCase();
+  var matched = /\.([a-z0-9]+)$/i.exec(String(file.fileName || ""));
+  return IMAGE_MEDIA_TYPE_BY_SUFFIX[suffix] || (matched && IMAGE_MEDIA_TYPE_BY_SUFFIX[matched[1].toLowerCase()]) || "";
+}
+
 function imageCandidates(attachments) {
   var result = [];
   (Array.isArray(attachments) ? attachments : []).forEach(function (file) {
     if (!file || !file.fileId) return;
-    var suffix = String(file.suffix || "").replace(/^\./, "").toLowerCase();
-    var name = String(file.fileName || "");
-    var matched = /\.([a-z0-9]+)$/i.exec(name);
-    var mediaType = IMAGE_MEDIA_TYPE_BY_SUFFIX[suffix] || (matched && IMAGE_MEDIA_TYPE_BY_SUFFIX[matched[1].toLowerCase()]) || "";
+    var mediaType = fileImageMediaType(file);
     if (!mediaType) return;
-    result.push({ fileId: file.fileId, fileName: name || "图片", mediaType: mediaType });
+    result.push({ fileId: file.fileId, fileName: String(file.fileName || "") || "图片", mediaType: mediaType });
   });
   return result.slice(0, HANDLE_IMAGE_LIMIT);
 }
