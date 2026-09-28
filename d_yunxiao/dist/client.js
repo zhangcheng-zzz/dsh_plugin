@@ -11,7 +11,7 @@ var PAGE_SIZE = 5;
 var PANEL_WIDTH_STORAGE_KEY = "dsh-yunxiao:panel-width";
 var DEFAULT_PANEL_WIDTH = 480;
 var MIN_PANEL_WIDTH = 380;
-var MAX_PANEL_WIDTH = 860;
+var MAX_PANEL_WIDTH = 1080;
 var DEFAULT_NOTIFICATION_INTERVAL = 5;
 var NOTIFICATION_MINUTE_MS = Math.max(100, Number(window.__DYX_NOTIFICATION_MINUTE_MS__) || 60 * 1000);
 
@@ -2302,6 +2302,8 @@ function apply(ctx) {
   function applyPanelWidth(value, persist) {
     panelWidth = clampPanelWidth(value);
     if (workspaceFrame) workspaceFrame.style.setProperty("--dyx-workspace-width", panelWidth + "px");
+    // 兜底：即使没找到宿主网格 frame，也把变量写在面板自身上，保证拖拽始终生效。
+    if (activePanelElement) activePanelElement.style.setProperty("--dyx-workspace-width", panelWidth + "px");
     if (persist) {
       preferredPanelWidth = panelWidth;
       savePanelWidth(panelWidth);
@@ -2327,14 +2329,22 @@ function apply(ctx) {
     workspaceFrame.style.removeProperty("--dyx-workspace-width");
     workspaceFrame = null;
   }
+  // 新版宿主布局（rightbar 轨道模型）已移除 openDetails/closeDetails，
+  // 这里只做特性探测：老宿主仍让位 details 面板，新宿主靠 grid 覆盖直接停靠。
+  function openHostDetails() {
+    if (typeof ctx.layout.openDetails === "function") ctx.layout.openDetails();
+  }
+  function closeHostDetails() {
+    if (typeof ctx.layout.closeDetails === "function") ctx.layout.closeDetails();
+  }
   function setPanelOpen(open) {
     var next = Boolean(open);
     if (panelOpen !== next) {
       panelOpen = next;
       panelListeners.forEach(function (listener) { listener(panelOpen); });
     }
-    if (panelOpen) { ctx.layout.openDetails(); widenWorkspaceFrame(); }
-    else { restoreWorkspaceFrame(); ctx.layout.closeDetails(); }
+    if (panelOpen) { openHostDetails(); widenWorkspaceFrame(); }
+    else { restoreWorkspaceFrame(); closeHostDetails(); }
   }
   var activeWorkspace = null;
   var activePanelElement = null;
@@ -2475,7 +2485,7 @@ function apply(ctx) {
     restoreWorkspaceFrame();
     window.removeEventListener("resize", onWindowResize);
     document.documentElement.classList.remove("dyx-resizing");
-    ctx.layout.closeDetails();
+    closeHostDetails();
     if (!existingStyle) style.remove();
   }; }, "dsh-yunxiao: reserved right workspace");
 }

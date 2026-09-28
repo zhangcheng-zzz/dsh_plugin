@@ -76,8 +76,8 @@ test("client uses the native sidebar trigger and a stable reserved right panel",
   const source = await readFile(new URL("../dist/client.js", import.meta.url), "utf8");
   assert.match(source, /sidebar\.footer\.action/);
   assert.match(source, /shell\.overlay/);
-  assert.match(source, /layout\.openDetails\(\)/);
-  assert.match(source, /layout\.closeDetails\(\)/);
+  assert.match(source, /typeof ctx\.layout\.openDetails === "function"/);
+  assert.match(source, /typeof ctx\.layout\.closeDetails === "function"/);
   assert.match(source, /dyx-right-panel/);
   assert.match(source, /\.dyx-right-panel\{[^}]*width:var\(--dyx-workspace-width,480px\)/);
   assert.match(source, /data-dyx-workspace-open/);
