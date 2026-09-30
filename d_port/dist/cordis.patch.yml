@@ -1,7 +1,0 @@
-# dsh-port: Windows 端口管理
-- insert:
-    - id: dsh-port
-      name: 'dsh-port'
-      config:
-        timeoutMs: 15000
-        killRecheckDelayMs: 300
